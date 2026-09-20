@@ -1,3 +1,7 @@
+"scripts": {
+  "build": "tsc",
+  "deploy": "wrangler deploy"
+}
 {
   "name": "bento-cloudflare",
   "version": "1.0.0",
