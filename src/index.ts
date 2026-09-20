@@ -1,4 +1,3 @@
-
 import { Hono } from 'hono';
 
 type Bindings = {
@@ -7,6 +6,28 @@ type Bindings = {
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
+
+// ==========================================
+// 0. 前端靜態頁面路由 (對應 public 資料夾內的 HTML)
+// ==========================================
+
+// 首頁自動轉向到點餐前台
+app.get('/', (c) => {
+  return c.redirect('/index.html');
+});
+
+// 支援不加 .html 後綴也能開頁面
+app.get('/index', (c) => {
+  return c.env.ASSETS.fetch(new Request(new URL('/index.html', c.req.url)));
+});
+
+app.get('/admin', (c) => {
+  return c.env.ASSETS.fetch(new Request(new URL('/admin.html', c.req.url)));
+});
+
+app.get('/store_admin', (c) => {
+  return c.env.ASSETS.fetch(new Request(new URL('/store_admin.html', c.req.url)));
+});
 
 // ==========================================
 // 1. 前台點餐 API (供 index.html 使用)
@@ -138,6 +159,13 @@ app.post('/api/admin/settings', async (c) => {
   const batch = Object.entries(body).map(([key, val]) => stmt.bind(key, String(val)));
   await c.env.DB.batch(batch);
   return c.json({ success: true });
+});
+
+// ==========================================
+// 3. 全域靜態檔案兜底處理 (處理所有 .html、.css、.js、圖片)
+// ==========================================
+app.get('/*', async (c) => {
+  return c.env.ASSETS.fetch(c.req.raw);
 });
 
 export default app;
