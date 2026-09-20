@@ -359,12 +359,37 @@ foreach ($rawOrders as $ro) {
     <h2>同學訂購明細與收款核銷</h2>
     <table>
         <thead>
-            <tr>
-                <th style="width: 15%;">姓名</th>
-                <th style="width: 55%;">訂購品項 (含店家 / 備註 / 單價)</th>
-                <th style="width: 15%;">應收總額</th>
-                <th style="width: 15%;">付款狀態</th>
-            </tr>
+            <!-- 請參考此結構，替換您迴圈印出 <tr> 內部的對應欄位 -->
+            <tr id="order-row-<?php echo $row['id']; ?>" data-order-id="<?php echo $row['id']; ?>" data-price="<?php echo $row['price']; ?>">
+              <td><?php echo htmlspecialchars($row['user_name']); ?></td>
+              
+              <!-- 品項加上 item-text 的 class，方便 JavaScript 控制刪除線 -->
+              <td>
+                <span class="item-text">
+                  <?php echo htmlspecialchars($row['item_name']); ?> 
+                  <small class="text-muted">(<?php echo htmlspecialchars($row['store_name'] ?? ''); ?> / <?php echo htmlspecialchars($row['note']); ?>)</small>
+                </span>
+              </td>
+              
+              <!-- 應收金額欄位 -->
+              <td class="payable-amount"><?php echo $row['price']; ?></td>
+              
+              <!-- 替換 1：已繳金額改為輸入框，並綁定 oninput 事件 -->
+              <td>
+                <input type="number" class="form-control paid-input" value="<?php echo $row['paid_amount'] ?? 0; ?>" min="0" style="width: 100px;" oninput="calculateBalance(<?php echo $row['id']; ?>)">
+              </td>
+              
+              <!-- 替換 2：對帳狀態顯示區 -->
+              <td>
+                <span class="badge bg-danger status-badge">🔴 判定中</span>
+              </td>
+              
+              <!-- 替換 3：操作按鈕，帶入當前品項的所有動態參數 -->
+              <td>
+                <button class="btn btn-sm btn-warning me-1" onclick="openUpdateModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['item_name']); ?>', '<?php echo addslashes($row['store_name'] ?? ''); ?>', '<?php echo addslashes($row['note']); ?>', <?php echo $row['price']; ?>)">更新</button>
+                <button class="btn btn-sm btn-danger cancel-btn" onclick="toggleCancelItem(<?php echo $row['id']; ?>)">取消品項</button>
+              </td>
+            </tr>          
         </thead>
         <tbody>
             <?php if (empty($userOrders)): ?>
@@ -432,7 +457,175 @@ function toggleUserPaid(userName, curPaid, btn) {
         }
     });
 }
+// 💡 功能一：應收 vs 已繳 自動判斷付款/退款
+function calculateBalance(orderId) {
+  const row = document.getElementById(`order-row-${orderId}`);
+  if (!row) return;
+  
+  const isCancelled = row.getAttribute('data-cancelled') === '1';
+  const payable = isCancelled ? 0 : parseInt(row.getAttribute('data-price')) || 0;
+  const paidInput = row.querySelector('.paid-input');
+  const paid = parseInt(paidInput.value) || 0;
+  const statusBadge = row.querySelector('.status-badge');
+
+  // 即時更新畫面的應收金額數字
+  row.querySelector('.payable-amount').innerText = payable;
+
+  // 對帳邏輯判斷
+  if (paid === payable) {
+    statusBadge.className = "badge bg-success status-badge";
+    statusBadge.innerText = "🟢 付款完成";
+  } else if (paid > payable) {
+    const refund = paid - payable;
+    statusBadge.className = "badge bg-primary status-badge";
+    statusBadge.innerText = `🔵 應退 $${refund}`;
+  } else {
+    const owe = payable - paid;
+    statusBadge.className = "badge bg-danger status-badge";
+    statusBadge.innerText = `🔴 欠款 $${owe}`;
+  }
+}
+
+// 💡 功能二：品項取消與還原 (控制刪除線與金額歸零)
+function toggleCancelItem(orderId) {
+  const row = document.getElementById(`order-row-${orderId}`);
+  if (!row) return;
+  
+  const itemText = row.querySelector('.item-text');
+  const cancelBtn = row.querySelector('.cancel-btn');
+  const isCancelled = row.getAttribute('data-cancelled') === '1';
+
+  if (!isCancelled) {
+    itemText.style.textDecoration = "line-through";
+    itemText.style.color = "gray";
+    row.setAttribute('data-cancelled', '1');
+    cancelBtn.innerText = "恢復品項";
+    cancelBtn.className = "btn btn-sm btn-outline-secondary cancel-btn";
+  } else {
+    itemText.style.textDecoration = "none";
+    itemText.style.color = "initial";
+    row.setAttribute('data-cancelled', '0');
+    cancelBtn.innerText = "取消品項";
+    cancelBtn.className = "btn btn-sm btn-danger cancel-btn";
+  }
+
+  calculateBalance(orderId);
+}
+
+// 💡 功能三：開啟 Modal 並帶入舊資料
+let bootstrapModal;
+function openUpdateModal(orderId, itemName, storeName, note, price) {
+  document.getElementById('modalOrderId').value = orderId;
+  document.getElementById('modalItemName').value = itemName;
+  document.getElementById('modalStoreName').value = storeName;
+  document.getElementById('modalNote').value = note;
+  document.getElementById('modalPrice').value = price;
+
+  bootstrapModal = new bootstrap.Modal(document.getElementById('updateItemModal'));
+  bootstrapModal.show();
+}
+
+// 儲存 Modal 的修改結果
+function submitItemUpdate() {
+  const orderId = document.getElementById('modalOrderId').value;
+  const newItemName = document.getElementById('modalItemName').value;
+  const newStoreName = document.getElementById('modalStoreName').value;
+  const newNote = document.getElementById('modalNote').value;
+  const newPrice = parseInt(document.getElementById('modalPrice').value) || 0;
+
+  const row = document.getElementById(`order-row-${orderId}`);
+  if (row) {
+    row.setAttribute('data-price', newPrice);
+    row.querySelector('.item-text').innerHTML = `${newItemName} <small class="text-muted">(${newStoreName} / ${newNote})</small>`;
+    calculateBalance(orderId);
+  }
+  
+  bootstrapModal.hide();
+}
+
+// 🔄 網頁載入完成後，自動幫每一列執行一次對帳初始化
+document.addEventListener("DOMContentLoaded", function() {
+  document.querySelectorAll('[data-order-id]').forEach(row => {
+    const orderId = row.getAttribute('data-order-id');
+    calculateBalance(orderId);
+  });
+});
+
 </script>
+<!-- ======================================================== -->
+<!-- 貼在 </body> 之前：品項更新的彈出視窗 (Bootstrap Modal) -->
+<!-- ======================================================== -->
+<div class="modal fade" id="updateItemModal" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="updateModalLabel">修改員工品項</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- 隱藏欄位，用來記錄目前正在修改哪一筆訂單 ID -->
+        <input type="hidden" id="modalOrderId">
+        <div class="mb-3">
+          <label class="form-label">品項名稱</label>
+          <input type="text" class="form-control" id="modalItemName">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">店家</label>
+          <input type="text" class="form-control" id="modalStoreName" readonly>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">自訂備註</label>
+          <input type="text" class="form-control" id="modalNote">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">新單價</label>
+          <input type="number" class="form-control" id="modalPrice">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+        <button type="button" class="btn btn-primary" onclick="submitItemUpdate()">儲存更新</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ======================================================== -->
+<!-- 貼在 </body> 之前：品項更新的彈出視窗 (Bootstrap Modal) -->
+<!-- ======================================================== -->
+<div class="modal fade" id="updateItemModal" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="updateModalLabel">修改員工品項</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- 隱藏欄位，用來記錄目前正在修改哪一筆訂單 ID -->
+        <input type="hidden" id="modalOrderId">
+        <div class="mb-3">
+          <label class="form-label">品項名稱</label>
+          <input type="text" class="form-control" id="modalItemName">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">店家</label>
+          <input type="text" class="form-control" id="modalStoreName" readonly>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">自訂備註</label>
+          <input type="text" class="form-control" id="modalNote">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">新單價</label>
+          <input type="number" class="form-control" id="modalPrice">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+        <button type="button" class="btn btn-primary" onclick="submitItemUpdate()">儲存更新</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
