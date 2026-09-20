@@ -11,7 +11,7 @@
     {
       "binding": "DB",
       "database_name": "bento_db",
-      "database_id": "WILL_BE_BOUND_ON_DEPLOY"
+      "database_id": "DB"
     }
   ]
 }
