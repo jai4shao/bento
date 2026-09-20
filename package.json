@@ -1,13 +1,9 @@
-"scripts": {
-  "build": "tsc",
-  "deploy": "wrangler deploy"
-}
 {
-  "name": "bento-cloudflare",
+  "name": "bento-order-system",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev",
+    "build": "tsc",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
