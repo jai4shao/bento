@@ -2,7 +2,7 @@
 
 點擊下方按鈕即可一鍵複製並部署至 Cloudflare Workers：
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/【你的GitHub帳號】/【你的專案名稱】)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jai4shao/bento)
 
 ### 💡 第一次使用設置步驟 (僅需 2 分鐘)：
 1. 點擊上方按鈕，登入您的 **Cloudflare 帳號** 並按確認部署。
