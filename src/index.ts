@@ -1,4 +1,24 @@
-// 🔍 除錯用：直接看 Worker 看到的資料表清單
+import { Hono } from 'hono';
+
+type Bindings = {
+  DB: D1Database;
+  ASSETS: Fetcher;
+};
+
+const app = new Hono<{ Bindings: Bindings }>();
+
+// ==========================================
+// 0. 靜態頁面導向
+// ==========================================
+app.get('/', (c) => c.redirect('/index.html'));
+app.get('/index', (c) => c.env.ASSETS.fetch(new Request(new URL('/index.html', c.req.url))));
+app.get('/admin', (c) => c.env.ASSETS.fetch(new Request(new URL('/admin.html', c.req.url))));
+app.get('/store_admin', (c) => c.env.ASSETS.fetch(new Request(new URL('/store_admin.html', c.req.url))));
+
+// ==========================================
+// 🛠️ 資料庫檢查與一鍵修復端點 (除錯專用)
+// ==========================================
+// 1. 查看線上 Worker 到底連到哪顆 D1、裡面有哪些表
 app.get('/api/debug-db', async (c) => {
   try {
     const tables = await c.env.DB.prepare(
@@ -17,23 +37,60 @@ app.get('/api/debug-db', async (c) => {
   }
 });
 
-import { Hono } from 'hono';
+// 2. 線上一鍵自動建表修復 (不管當初綁到哪顆空資料庫，點開就建好)
+app.get('/api/setup-database', async (c) => {
+  try {
+    const db = c.env.DB;
+    await db.batch([
+      db.prepare(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        avatar_url TEXT DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`),
+      db.prepare(`CREATE TABLE IF NOT EXISTS stores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT DEFAULT '',
+        category TEXT DEFAULT '便當',
+        is_active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`),
+      db.prepare(`CREATE TABLE IF NOT EXISTS menu_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        store_id INTEGER NOT NULL,
+        item_name TEXT NOT NULL,
+        price INTEGER NOT NULL DEFAULT 0,
+        is_available INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 0
+      )`),
+      db.prepare(`CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_name TEXT NOT NULL,
+        item_id INTEGER NOT NULL,
+        note TEXT DEFAULT '',
+        price INTEGER NOT NULL DEFAULT 0,
+        paid_amount INTEGER DEFAULT 0,
+        is_paid INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`),
+      db.prepare(`CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key TEXT PRIMARY KEY,
+        setting_value TEXT NOT NULL
+      )`),
+      db.prepare(`INSERT OR IGNORE INTO stores (id, name, phone, category, is_active) VALUES (1, '美味便當店', '04-7123456', '便當', 1)`),
+      db.prepare(`INSERT OR IGNORE INTO menu_items (id, store_id, item_name, price, is_available) VALUES (1, 1, '招牌排骨飯', 100, 1)`),
+      db.prepare(`INSERT OR IGNORE INTO menu_items (id, store_id, item_name, price, is_available) VALUES (2, 1, '香酥雞腿飯', 110, 1)`)
+    ]);
 
-type Bindings = {
-  DB: D1Database;
-  ASSETS: Fetcher;
-};
-
-const app = new Hono<{ Bindings: Bindings }>();
-
-// 靜態頁面導向
-app.get('/', (c) => c.redirect('/index.html'));
-app.get('/index', (c) => c.env.ASSETS.fetch(new Request(new URL('/index.html', c.req.url))));
-app.get('/admin', (c) => c.env.ASSETS.fetch(new Request(new URL('/admin.html', c.req.url))));
-app.get('/store_admin', (c) => c.env.ASSETS.fetch(new Request(new URL('/store_admin.html', c.req.url))));
+    return c.json({ success: true, message: '🎉 資料庫所有資料表已成功強制建置完成！' });
+  } catch (err: any) {
+    return c.json({ success: false, error: err?.message || err }, 500);
+  }
+});
 
 // ==========================================
-// 1. 初始化資料 API
+// 1. 初始化前台資料 API
 // ==========================================
 app.get('/api/init-order-page', async (c) => {
   const db = c.env.DB;
@@ -81,7 +138,6 @@ app.post('/api/order/submit', async (c) => {
   return c.json({ success: true, message: '點餐成功！' });
 });
 
-// 新增人員
 // 新增人員 API
 app.post('/api/user/add', async (c) => {
   try {
@@ -92,15 +148,13 @@ app.post('/api/user/add', async (c) => {
       return c.json({ success: false, message: '姓名不能為空' }, 400);
     }
 
-    // 使用 INSERT OR IGNORE 或標準 INSERT，若有 avatar_url 等欄位給預設值
-    const result = await c.env.DB.prepare(
+    await c.env.DB.prepare(
       "INSERT INTO users (name) VALUES (?)"
     ).bind(name).run();
 
     return c.json({ success: true, message: '新增成功' });
   } catch (err: any) {
     console.error('Add user error:', err);
-    // 回傳真實的資料庫報錯，方便除錯
     return c.json({ success: false, message: `資料庫錯誤: ${err?.message || err}` }, 400);
   }
 });
@@ -189,6 +243,7 @@ app.post('/api/admin/orders/reset', async (c) => {
   return c.json({ success: true, message: '已清空本週所有點餐紀錄！' });
 });
 
+// 靜態資產全域兜底
 app.get('/*', async (c) => c.env.ASSETS.fetch(c.req.raw));
 
 export default app;
