@@ -9,27 +9,52 @@
 <body class="bg-slate-100 min-h-screen text-slate-800 p-4 md:p-8">
   <div class="max-w-4xl mx-auto space-y-6">
 
-    <!-- 頂部卡片 -->
+    <!-- 頂部導航 -->
     <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex justify-between items-center">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">🏬 店家與菜單管理</h1>
-        <p class="text-xs text-slate-500 mt-1">管理配合店家資訊、供餐切換與菜單品項</p>
+        <p class="text-xs text-slate-500 mt-1">管理店家資訊、菜單品項與 AI 批次快速匯入</p>
       </div>
       <div class="space-x-2">
-        <a href="/" class="text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition">返回前台</a>
-        <a href="/admin" class="text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition">收款對帳</a>
+        <a href="/" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-200 transition">返回前台</a>
+        <a href="/admin" class="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3.5 py-2 rounded-xl border border-blue-200 transition">收款對帳</a>
       </div>
     </header>
 
-    <!-- 新增店家表單 -->
+    <!-- 🤖 AI 菜單快速匯入區塊 -->
     <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
-      <h2 class="text-lg font-bold text-slate-800 border-b pb-2">➕ 新增合作店家</h2>
+      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-3">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800 flex items-center gap-1.5">
+            <span>🤖</span> AI 菜單快速匯入助手
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">複製下方 Prompt 傳給 ChatGPT / Gemini 讀圖或文字，再將產出的 SQL 貼入執行</p>
+        </div>
+        <button onclick="copyAiPrompt()" class="inline-flex items-center text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3.5 py-2 rounded-xl transition">
+          📋 複製 AI 提示詞 (Prompt)
+        </button>
+      </div>
+
+      <div>
+        <textarea id="rawSqlInput" rows="5" placeholder="請將 AI 產生的 SQL 語句（INSERT INTO stores / menu_items...）貼在此處..." class="w-full font-mono text-xs border border-slate-300 rounded-xl p-3 bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+      </div>
+
+      <div class="flex justify-end">
+        <button onclick="executeRawSql()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow transition">
+          🚀 執行匯入 SQL
+        </button>
+      </div>
+    </section>
+
+    <!-- 單筆新增店家表單 -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
+      <h2 class="text-sm font-bold text-slate-700 border-b pb-2">手動新增合作店家</h2>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <input type="text" id="newStoreName" placeholder="店家名稱（如：正忠排骨）" class="border border-slate-300 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
         <input type="text" id="newStorePhone" placeholder="電話（選填）" class="border border-slate-300 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
         <input type="text" id="newStoreCategory" placeholder="分類（如：便當、麵食）" class="border border-slate-300 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
       </div>
-      <button onclick="addStore()" class="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">
+      <button onclick="addStore()" class="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-5 py-2.5 rounded-xl transition">
         建立新店家
       </button>
     </section>
@@ -42,6 +67,58 @@
   </div>
 
   <script>
+    // 專為 Cloudflare D1 (SQLite) 優化的 Prompt
+    const AI_PROMPT_TEMPLATE = `請閱讀以下菜單圖片或文字清單，並直接轉換成符合 Cloudflare D1 (SQLite) 的 SQL 插入語句。
+【規則需求】：
+1. 只需要提供純 SQL 代碼，放在 \`\`\`sql 區塊內即可，不要包含其他多餘解釋。
+2. 請自動提取或預設店家名稱、電話與分類。
+3. 使用以下標準語法格式（透過子查詢獲取 store_id，確保單次執行成功）：
+
+INSERT INTO stores (name, phone, category, is_active) 
+VALUES ('店家名稱', '電話', '分類', 1);
+
+INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
+((SELECT id FROM stores WHERE name = '店家名稱' ORDER BY id DESC LIMIT 1), '品項1', 100, 1),
+((SELECT id FROM stores WHERE name = '店家名稱' ORDER BY id DESC LIMIT 1), '品項2', 110, 1);`;
+
+    function copyAiPrompt() {
+      navigator.clipboard.writeText(AI_PROMPT_TEMPLATE).then(() => {
+        alert('✅ AI 提示詞已複製到剪貼簿！\n\n你可以把這段提示詞連同菜單照片傳給 AI，將產出的 SQL 貼入下方輸入框匯入。');
+      }).catch(() => {
+        prompt('請手動複製以下提示詞：', AI_PROMPT_TEMPLATE);
+      });
+    }
+
+    async function executeRawSql() {
+      const sql = document.getElementById('rawSqlInput').value.trim();
+      if (!sql) return alert('請先貼入 SQL 語法！');
+
+      const btn = event.target;
+      btn.disabled = true;
+      btn.innerText = '匯入執行中...';
+
+      try {
+        const res = await fetch('/api/admin/raw-sql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sql })
+        });
+        const json = await res.json();
+        if (json.success) {
+          alert('🎉 ' + json.message);
+          document.getElementById('rawSqlInput').value = '';
+          loadStores();
+        } else {
+          alert('匯入失敗：' + (json.message || '語法錯誤'));
+        }
+      } catch (err) {
+        alert('網路連線失敗，請檢查網路狀況');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '🚀 執行匯入 SQL';
+      }
+    }
+
     async function loadStores() {
       try {
         const res = await fetch('/api/init-order-page');
@@ -52,52 +129,53 @@
         const container = document.getElementById('storeContainer');
 
         if (!stores || stores.length === 0) {
-          container.innerHTML = '<div class="bg-white rounded-2xl p-8 text-center text-slate-400">目前尚無店家資料，請使用上方表單建立第一間店家。</div>';
+          container.innerHTML = '<div class="bg-white rounded-2xl p-8 text-center text-slate-400">目前尚無店家資料，請使用上方 AI 助手或手動表單建立。</div>';
           return;
         }
 
-        container.innerHTML = stores.map(s => {
+        let html = '';
+        stores.forEach(s => {
           const items = menuItems.filter(m => m.store_id === s.id);
-          return `
-            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
-              <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b pb-4">
-                <div>
-                  <div class="flex items-center space-x-2">
-                    <h3 class="text-xl font-bold text-slate-800">${s.name}</h3>
-                    <span class="text-xs font-semibold px-2 py-0.5 rounded ${s.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}">
-                      ${s.is_active ? '供餐中' : '休息中'}
-                    </span>
-                  </div>
-                  <p class="text-xs text-slate-500 mt-1">電話：${s.phone || '未提供'} ｜ 分類：${s.category || '一般'}</p>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <button onclick="toggleStore(${s.id}, ${s.is_active ? 0 : 1})" class="text-xs font-semibold px-3 py-1.5 rounded-lg border ${s.is_active ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'} transition">
-                    ${s.is_active ? '切換為休息' : '設為今日供餐'}
-                  </button>
-                  <button onclick="addMenuItemPrompt(${s.id}, '${s.name}')" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition">
-                    ➕ 新增餐點
-                  </button>
-                </div>
-              </div>
+          const statusBadge = s.is_active 
+            ? '<span class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">供餐中</span>'
+            : '<span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-600">休息中</span>';
+          
+          const toggleBtn = '<button onclick="toggleStore(' + s.id + ', ' + (s.is_active ? 0 : 1) + ')" class="text-xs font-semibold px-3 py-1.5 rounded-lg border ' + (s.is_active ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100') + ' transition">' + (s.is_active ? '切換為休息' : '設為今日供餐') + '</button>';
 
-              <!-- 菜單列表 -->
-              <div>
-                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">菜單品項 (${items.length})</h4>
-                ${items.length === 0 ? '<p class="text-xs text-slate-400 py-2">尚未新增餐點品項，點擊上方「➕ 新增餐點」開始建立。</p>' : `
-                  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                    ${items.map(it => `
-                      <div class="flex justify-between items-center bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
-                        <span class="font-medium text-slate-700">${it.item_name}</span>
-                        <span class="font-bold text-blue-600">$${it.price}</span>
-                      </div>
-                    `).join('')}
-                  </div>
-                `}
-              </div>
-            </div>
-          `;
-        }).join('');
+          html += '<div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">' +
+            '<div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b pb-4">' +
+              '<div>' +
+                '<div class="flex items-center space-x-2">' +
+                  '<h3 class="text-xl font-bold text-slate-800">' + s.name + '</h3>' +
+                  statusBadge +
+                '</div>' +
+                '<p class="text-xs text-slate-500 mt-1">電話：' + (s.phone || '未提供') + ' ｜ 分類：' + (s.category || '一般') + '</p>' +
+              '</div>' +
+              '<div class="flex items-center space-x-2">' +
+                toggleBtn +
+                '<button onclick="addMenuItemPrompt(' + s.id + ', \'' + s.name + '\')" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition">➕ 新增餐點</button>' +
+              '</div>' +
+            '</div>' +
+            '<div>' +
+              '<h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">菜單品項 (' + items.length + ')</h4>';
 
+          if (items.length === 0) {
+            html += '<p class="text-xs text-slate-400 py-2">尚未新增餐點品項。</p>';
+          } else {
+            html += '<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-sm">';
+            items.forEach(it => {
+              html += '<div class="flex justify-between items-center bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">' +
+                '<span class="font-medium text-slate-700">' + it.item_name + '</span>' +
+                '<span class="font-bold text-blue-600">$' + it.price + '</span>' +
+              '</div>';
+            });
+            html += '</div>';
+          }
+
+          html += '</div></div>';
+        });
+
+        container.innerHTML = html;
       } catch (err) {
         document.getElementById('storeContainer').innerHTML = '<div class="bg-white rounded-2xl p-8 text-center text-red-500">讀取店家資料失敗</div>';
       }
@@ -137,10 +215,10 @@
     }
 
     async function addMenuItemPrompt(storeId, storeName) {
-      const itemName = prompt(`請輸入要在 [${storeName}] 新增的品項名稱：`);
+      const itemName = prompt('請輸入要在 [' + storeName + '] 新增的品項名稱：');
       if (!itemName || !itemName.trim()) return;
 
-      const priceStr = prompt(`請輸入 [${itemName}] 的價格（整數）：`, '100');
+      const priceStr = prompt('請輸入 [' + itemName + '] 的價格（整數）：', '100');
       if (!priceStr || isNaN(Number(priceStr))) return alert('請輸入有效的價格數字！');
 
       const res = await fetch('/api/menu/add', {
