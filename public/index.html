@@ -13,7 +13,7 @@
     <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">🍱 今日便當 / 飲料登記</h1>
-        <p class="text-xs text-slate-500 mt-1">選定姓名後點擊店家挑選餐點，支援多份與規格化備註</p>
+        <p class="text-xs text-slate-500 mt-1">選定姓名後挑選餐點，您可自由修改或取消自己的登記紀錄</p>
       </div>
       <div class="space-x-2">
         <a href="/admin" class="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3.5 py-2 rounded-xl border border-blue-200 transition">訂單核銷後台</a>
@@ -23,7 +23,6 @@
 
     <!-- 點餐操作卡片 -->
     <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-5">
-      
       <!-- 1. 人員選擇 -->
       <div>
         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">1. 選擇點餐姓名</label>
@@ -37,18 +36,16 @@
         </div>
       </div>
 
-      <!-- 2. 店家按鈕區 (點擊跳出該店菜單 Modal) -->
+      <!-- 2. 店家按鈕區 -->
       <div>
         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">2. 點選店家瀏覽菜單</label>
-        <div id="storeButtonsContainer" class="flex flex-wrap gap-2.5">
-          <!-- 動態載入店家按鈕 -->
-        </div>
+        <div id="storeButtonsContainer" class="flex flex-wrap gap-2.5"></div>
       </div>
 
-      <!-- 3. 已選餐點清單 (購物車) -->
+      <!-- 3. 已選購物車清單 -->
       <div class="border-t pt-4">
         <div class="flex justify-between items-center mb-2">
-          <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">🛒 已選餐點清單</label>
+          <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">🛒 待送出點餐清單</label>
           <span id="cartTotalPrice" class="text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg">小計：$0</span>
         </div>
         
@@ -66,7 +63,10 @@
 
     <!-- 今日已登記清單 -->
     <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-      <h2 class="text-lg font-bold text-slate-800 mb-4">📋 今日已登記清單</h2>
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold text-slate-800">📋 今日已登記清單</h2>
+        <span class="text-xs text-slate-500 font-medium">💡 只有您自己的餐點才會顯示操作按鈕</span>
+      </div>
       <div id="ordersContainer" class="overflow-x-auto text-sm">
         <p class="text-slate-400 py-4 text-center">載入清單中...</p>
       </div>
@@ -74,10 +74,9 @@
 
   </div>
 
-  <!-- 🏪 菜單選擇彈窗 Modal (首頁不再被長菜單佔據) -->
+  <!-- 🏪 菜單選擇彈窗 Modal -->
   <div id="menuModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
-      <!-- Modal 標題列 -->
       <div class="p-4 sm:p-5 border-b flex justify-between items-center bg-slate-50">
         <div>
           <h3 id="modalStoreTitle" class="text-lg font-bold text-slate-800">店家菜單</h3>
@@ -85,18 +84,10 @@
         </div>
         <button onclick="closeMenuModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2 leading-none">&times;</button>
       </div>
-
-      <!-- 搜尋菜單 -->
       <div class="p-3 border-b bg-white">
         <input type="text" id="menuSearchInput" oninput="onMenuSearch()" placeholder="🔍 搜尋該店品項名稱..." class="w-full text-xs border border-slate-300 rounded-xl px-3.5 py-2 outline-none focus:ring-2 focus:ring-blue-500">
       </div>
-
-      <!-- 菜單品項卡片網格 -->
-      <div id="modalMenuGrid" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm flex-1">
-        <!-- 動態填入品項卡片 -->
-      </div>
-
-      <!-- Modal 底部關閉按鈕 -->
+      <div id="modalMenuGrid" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm flex-1"></div>
       <div class="p-3 border-t bg-slate-50 flex justify-between items-center">
         <span id="modalCartCount" class="text-xs font-semibold text-slate-600">已選 0 份</span>
         <button onclick="closeMenuModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2 rounded-xl transition">
@@ -106,7 +97,7 @@
     </div>
   </div>
 
-  <!-- 🥤 規格備註選擇彈窗 Modal (針對飲料甜度冰量、或餐點備註) -->
+  <!-- 🥤 規格備註選擇彈窗 Modal -->
   <div id="itemOptionModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-5 space-y-4">
       <div class="flex justify-between items-center border-b pb-3">
@@ -117,7 +108,6 @@
         <button onclick="closeOptionModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
       </div>
 
-      <!-- 甜度選擇 (若是飲料店顯示) -->
       <div id="sugarSection" class="space-y-1.5">
         <label class="text-xs font-bold text-slate-600">糖量選擇</label>
         <div class="grid grid-cols-5 gap-1 text-xs" id="sugarGroup">
@@ -129,7 +119,6 @@
         </div>
       </div>
 
-      <!-- 冰量選擇 (若是飲料店顯示) -->
       <div id="iceSection" class="space-y-1.5">
         <label class="text-xs font-bold text-slate-600">冰量選擇</label>
         <div class="grid grid-cols-4 sm:grid-cols-7 gap-1 text-[11px]" id="iceGroup">
@@ -143,16 +132,45 @@
         </div>
       </div>
 
-      <!-- 其他客製備註 -->
       <div>
         <label class="text-xs font-bold text-slate-600 mb-1 block">其他備註需求</label>
         <input type="text" id="customNoteInput" placeholder="如：少飯、不辣、加珍珠等" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
       </div>
 
-      <!-- 確認加入按鈕 -->
       <div class="flex justify-end space-x-2 pt-2 border-t">
         <button onclick="closeOptionModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
         <button onclick="confirmAddToCart()" class="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">加入清單</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✏️ 前台個人自我修改已點餐點 Modal -->
+  <div id="selfEditModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-5 space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="text-base font-bold text-slate-800">修改我的點餐</h3>
+        <button onclick="closeSelfEditModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">更換餐點品項</label>
+          <select id="selfEditItemSelect" onchange="onSelfEditItemChange()" class="w-full border border-slate-300 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-blue-500 text-xs">
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">金額 ($)</label>
+          <input type="number" id="selfEditPrice" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-700">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">備註需求 (如微糖微冰/少飯)</label>
+          <input type="text" id="selfEditNote" placeholder="例如：微糖微冰、少飯" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-3 border-t">
+        <button onclick="closeSelfEditModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
+        <button onclick="saveSelfEdit()" class="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">儲存修改</button>
       </div>
     </div>
   </div>
@@ -161,8 +179,10 @@
     const STORAGE_KEY = 'bento_user_name';
     let allStores = [];
     let allMenuItems = [];
+    let allOrders = [];
     let activeModalStoreId = null;
     let currentPendingItem = null;
+    let activeSelfEditingOrderId = null;
     let selectedSugar = '';
     let selectedIce = '';
     let cart = [];
@@ -176,10 +196,11 @@
         const { stores, menuItems, users, orders } = json.data;
         allStores = stores.filter(s => s.is_active == 1);
         allMenuItems = menuItems;
+        allOrders = orders || [];
 
         renderUsers(users);
         renderStoreButtons();
-        renderOrders(orders);
+        renderOrders(allOrders);
       } catch (err) {
         console.error(err);
       }
@@ -196,9 +217,11 @@
       select.innerHTML = html;
     }
 
+    // 換人時，重新渲染清單以動態切換誰有權限看到「修改/刪除」按鈕
     function onUserSelectChange() {
       const val = document.getElementById('userSelect').value;
       if (val) localStorage.setItem(STORAGE_KEY, val);
+      renderOrders(allOrders);
     }
 
     async function addNewUser() {
@@ -219,7 +242,6 @@
       }
     }
 
-    // 渲染店家按鈕 (點擊跳出該店 Modal)
     function renderStoreButtons() {
       const container = document.getElementById('storeButtonsContainer');
       if (!allStores || allStores.length === 0) {
@@ -241,7 +263,6 @@
       container.innerHTML = html;
     }
 
-    // 打開該店的菜單 Modal
     function openMenuModal(storeId) {
       const store = allStores.find(s => s.id === storeId);
       if (!store) return;
@@ -297,7 +318,6 @@
       document.getElementById('modalCartCount').innerText = '清單目前已選 ' + count + ' 份餐點';
     }
 
-    // 打開規格選擇 Modal (甜度/冰量/客製備註)
     function openOptionModal(itemId) {
       const item = allMenuItems.find(m => m.id === itemId);
       if (!item) return;
@@ -309,20 +329,17 @@
       document.getElementById('optionItemPrice').innerText = '$' + item.price;
       document.getElementById('customNoteInput').value = '';
 
-      // 判斷是否為飲料店：顯示或隱藏糖量/冰量
       const store = allStores.find(s => s.id === item.store_id);
       const isDrink = store && store.category && (store.category.includes('飲料') || store.category.includes('茶'));
 
       document.getElementById('sugarSection').style.display = isDrink ? 'block' : 'none';
       document.getElementById('iceSection').style.display = isDrink ? 'block' : 'none';
 
-      // 重置按鈕高亮
       document.querySelectorAll('.spec-btn').forEach(btn => {
         btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
         btn.classList.add('text-slate-700');
       });
 
-      // 飲料預設建議
       if (isDrink) {
         selectSugar('微糖');
         selectIce('微冰');
@@ -367,7 +384,6 @@
       const isDrink = store && store.category && (store.category.includes('飲料') || store.category.includes('茶'));
       const customNote = document.getElementById('customNoteInput').value.trim();
 
-      // 組合規格備註 (固定格式：微糖/微冰 或 微糖/微冰/加珍珠)
       let finalNote = '';
       if (isDrink) {
         const specs = [];
@@ -379,7 +395,6 @@
         finalNote = customNote;
       }
 
-      // 加入購物車 (同品項且相同備註者合併數量)
       const exist = cart.find(c => c.itemId === currentPendingItem.id && c.note === finalNote);
       if (exist) {
         exist.qty += 1;
@@ -404,6 +419,12 @@
       if (cart[index].qty <= 0) {
         cart.splice(index, 1);
       }
+      renderCart();
+      updateModalCartCount();
+    }
+
+    function removeCartItem(idx) {
+      cart.splice(idx, 1);
       renderCart();
       updateModalCartCount();
     }
@@ -447,12 +468,6 @@
       totalEl.innerText = '小計：$' + sum;
     }
 
-    function removeCartItem(idx) {
-      cart.splice(idx, 1);
-      renderCart();
-      updateModalCartCount();
-    }
-
     async function submitBatchOrder() {
       const userName = document.getElementById('userSelect').value;
       if (!userName) return alert('請先選擇您的名字！');
@@ -485,6 +500,7 @@
       }
     }
 
+    // 核心：渲染已登記清單 (嚴格比對是否為當前選取人員)
     function renderOrders(orders) {
       const container = document.getElementById('ordersContainer');
       if (!orders || orders.length === 0) {
@@ -492,27 +508,129 @@
         return;
       }
 
+      const currentUser = document.getElementById('userSelect').value;
+
       let html = '<table class="w-full text-left border-collapse">' +
         '<thead><tr class="border-b border-slate-200 text-slate-500 text-xs">' +
           '<th class="py-2.5 px-3">姓名</th>' +
           '<th class="py-2.5 px-3">店家 / 品項</th>' +
           '<th class="py-2.5 px-3">備註</th>' +
           '<th class="py-2.5 px-3 text-right">金額</th>' +
+          '<th class="py-2.5 px-3 text-right">操作</th>' +
         '</tr></thead><tbody class="divide-y divide-slate-100">';
 
       orders.forEach(o => {
-        html += '<tr class="hover:bg-slate-50 transition">' +
-          '<td class="py-2.5 px-3 font-bold text-slate-800">' + o.user_name + '</td>' +
+        const isSelf = currentUser && (o.user_name === currentUser);
+        let actionBtn = '<span class="text-slate-300 text-xs">-</span>';
+
+        // 只有屬於自己的餐點，才看得到與點得到修改/刪除按鈕
+        if (isSelf) {
+          actionBtn = '<div class="space-x-1.5 whitespace-nowrap">' +
+            '<button onclick="openSelfEditModal(' + o.id + ')" class="text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-1 rounded-lg transition">改</button>' +
+            '<button onclick="selfDeleteOrder(' + o.id + ')" class="text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 px-2 py-1 rounded-lg transition">刪</button>' +
+          '</div>';
+        }
+
+        html += '<tr class="hover:bg-slate-50 transition ' + (isSelf ? 'bg-blue-50/30' : '') + '">' +
+          '<td class="py-2.5 px-3 font-bold text-slate-800">' + 
+            o.user_name + (isSelf ? ' <span class="text-[10px] text-blue-600 font-normal">(我)</span>' : '') + 
+          '</td>' +
           '<td class="py-2.5 px-3">' +
             '<span class="text-xs text-blue-600 font-semibold">[' + (o.store_name || '未指定') + ']</span> ' +
             '<span class="font-medium text-slate-700">' + o.item_name + '</span>' +
           '</td>' +
           '<td class="py-2.5 px-3 text-xs text-slate-500">' + (o.note || '-') + '</td>' +
           '<td class="py-2.5 px-3 text-right font-bold text-slate-700">$' + o.price + '</td>' +
+          '<td class="py-2.5 px-3 text-right">' + actionBtn + '</td>' +
         '</tr>';
       });
       html += '</tbody></table>';
       container.innerHTML = html;
+    }
+
+    // 前台自我取消 (刪除)
+    async function selfDeleteOrder(orderId) {
+      const currentUser = document.getElementById('userSelect').value;
+      if (!currentUser) return alert('請先確認您目前選取的身分！');
+
+      if (!confirm('確定要取消刪除這份點餐嗎？')) return;
+
+      const res = await fetch('/api/order/self-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, userName: currentUser })
+      });
+      const json = await res.json();
+      if (json.success) {
+        initPage();
+      } else {
+        alert(json.message || '刪除失敗');
+      }
+    }
+
+    // 打開自我修改彈窗
+    function openSelfEditModal(orderId) {
+      const order = allOrders.find(o => o.id === orderId);
+      if (!order) return;
+
+      activeSelfEditingOrderId = orderId;
+      document.getElementById('selfEditPrice').value = order.price;
+      document.getElementById('selfEditNote').value = order.note || '';
+
+      // 裝填所有可選菜單品項
+      const select = document.getElementById('selfEditItemSelect');
+      let html = '';
+      allMenuItems.forEach(m => {
+        const isSel = (m.id === order.item_id) ? 'selected' : '';
+        html += '<option value="' + m.id + '" data-price="' + m.price + '" ' + isSel + '>' +
+          '[' + m.store_name + '] ' + m.item_name + ' - $' + m.price +
+        '</option>';
+      });
+      select.innerHTML = html;
+
+      document.getElementById('selfEditModal').classList.remove('hidden');
+    }
+
+    function onSelfEditItemChange() {
+      const select = document.getElementById('selfEditItemSelect');
+      const opt = select.options[select.selectedIndex];
+      if (opt && opt.dataset.price) {
+        document.getElementById('selfEditPrice').value = opt.dataset.price;
+      }
+    }
+
+    function closeSelfEditModal() {
+      document.getElementById('selfEditModal').classList.add('hidden');
+      activeSelfEditingOrderId = null;
+    }
+
+    // 儲存自我修改
+    async function saveSelfEdit() {
+      const currentUser = document.getElementById('userSelect').value;
+      if (!currentUser || !activeSelfEditingOrderId) return;
+
+      const itemId = Number(document.getElementById('selfEditItemSelect').value);
+      const price = Number(document.getElementById('selfEditPrice').value);
+      const note = document.getElementById('selfEditNote').value.trim();
+
+      const res = await fetch('/api/order/self-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: activeSelfEditingOrderId,
+          userName: currentUser,
+          itemId,
+          price,
+          note
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        closeSelfEditModal();
+        initPage();
+      } else {
+        alert(json.message || '修改失敗');
+      }
     }
 
     initPage();
