@@ -15,10 +15,9 @@
           <h1 class="text-2xl font-bold text-slate-800">📋 便當訂單核銷與統計</h1>
           <span id="lockStatusBadge" class="text-xs font-bold px-2.5 py-1 rounded-full border">載入中...</span>
         </div>
-        <p class="text-xs text-slate-500 mt-1">電話下單後請點擊「截止點餐」，避免事後有人偷加訂或跑單</p>
+        <p class="text-xs text-slate-500 mt-1">電話下單後請點擊「截止點餐」，支援一般便當統計與炸物滷味個人分袋打包</p>
       </div>
       <div class="flex items-center flex-wrap gap-2">
-        <!-- 結單/開放 切換按鈕 -->
         <button id="toggleLockBtn" onclick="toggleOrderLock()" class="text-xs font-bold px-4 py-2 rounded-xl border shadow-sm transition">
           切換狀態中...
         </button>
@@ -28,14 +27,24 @@
       </div>
     </header>
 
-    <!-- 1. 叫餐統計 -->
-    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-lg font-bold text-slate-800">📊 店家叫餐加總統計</h2>
+    <!-- 1. 叫餐統計 (分標準叫餐 與 個人打包合併叫餐) -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800">📊 店家叫餐加總統計</h2>
+          <p class="text-xs text-slate-500 mt-0.5">向店家報單總量</p>
+        </div>
         <span class="text-xs bg-blue-50 text-blue-700 font-bold px-3 py-1 rounded-full border border-blue-100" id="totalSummaryAmount">總額：$0</span>
       </div>
+
+      <!-- 一般餐點統計表 -->
       <div id="summaryContainer" class="overflow-x-auto text-sm">
         <p class="text-slate-400 py-4 text-center">載入統計中...</p>
+      </div>
+
+      <!-- 🛍️ 合併點餐專用叫餐區 (滷味、炸物、車輪餅等個人分袋裝) -->
+      <div id="bundledStoresContainer" class="space-y-3 pt-2">
+        <!-- 動態插入合併點餐分袋清單 -->
       </div>
     </section>
 
@@ -52,11 +61,14 @@
 
   </div>
 
-  <!-- 修改訂單彈窗 (管理員專用) -->
+  <!-- 修改訂單彈窗 (同店品項過濾) -->
   <div id="editModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
       <div class="flex justify-between items-center border-b pb-3">
-        <h3 class="text-lg font-bold text-slate-800">管理員修改餐點品項</h3>
+        <div>
+          <h3 class="text-lg font-bold text-slate-800">修改餐點品項</h3>
+          <p id="modalStoreIndicator" class="text-xs text-blue-600 font-bold mt-0.5"></p>
+        </div>
         <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
       </div>
       <div class="space-y-3 text-sm">
@@ -65,7 +77,7 @@
           <input type="text" id="modalUserName" disabled class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-slate-500">
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">更換餐點品項</label>
+          <label class="block font-semibold text-slate-700 mb-1">更換該店家品項</label>
           <select id="modalMenuSelect" onchange="onModalMenuChange()" class="w-full border border-slate-300 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-blue-500">
           </select>
         </div>
@@ -88,6 +100,7 @@
   <script>
     let rawOrders = [];
     let availableMenuItems = [];
+    let allStoresList = [];
     let activeEditingOrderId = null;
     let isCurrentlyLocked = false;
 
@@ -105,11 +118,13 @@
         const statusJson = await statusRes.json();
 
         availableMenuItems = (initJson.data && initJson.data.menuItems) ? initJson.data.menuItems : [];
+        allStoresList = (initJson.data && initJson.data.stores) ? initJson.data.stores : [];
         rawOrders = ordJson.data || [];
         isCurrentlyLocked = statusJson.isLocked || false;
 
         renderLockStatus();
         renderSummary(sumJson.data || []);
+        renderBundledStoreOrders(rawOrders);
         renderUserAggregatedOrders(rawOrders);
       } catch (e) {
         console.error(e);
@@ -157,6 +172,7 @@
       }
     }
 
+    // 1. 標準統計叫餐表 (數量加總)
     function renderSummary(summary) {
       const container = document.getElementById('summaryContainer');
       let total = 0;
@@ -191,6 +207,64 @@
       container.innerHTML = html;
     }
 
+    // 2. 判斷是否為「合併點餐類店家 (滷味/炸物/車輪餅/鹽酥雞/合併點餐)」
+    // 特別以個人為單位列出分袋打包明細，方便向店家報單「分裝打包」
+    function renderBundledStoreOrders(orders) {
+      const container = document.getElementById('bundledStoresContainer');
+      container.innerHTML = '';
+
+      // 篩選出分類標註為「合併點餐」或含有炸物、滷味、車輪餅等關鍵字的店家
+      const isBundledCategory = (cat) => {
+        if (!cat) return false;
+        const c = cat.toLowerCase();
+        return c.includes('合併點餐') || c.includes('滷味') || c.includes('炸物') || c.includes('車輪餅') || c.includes('點心');
+      };
+
+      const bundledStores = allStoresList.filter(s => isBundledCategory(s.category));
+      if (bundledStores.length === 0) return;
+
+      bundledStores.forEach(s => {
+        // 找出這間店的所有訂單
+        const storeOrders = orders.filter(o => o.store_name === s.name);
+        if (storeOrders.length === 0) return;
+
+        // 依人員歸併其所點的品項
+        const userBags = {};
+        storeOrders.forEach(o => {
+          if (!userBags[o.user_name]) {
+            userBags[o.user_name] = { userName: o.user_name, items: {}, bagTotal: 0 };
+          }
+          userBags[o.user_name].bagTotal += Number(o.price || 0);
+          const key = o.item_name + (o.note ? ` (${o.note})` : '');
+          userBags[o.user_name].items[key] = (userBags[o.user_name].items[key] || 0) + 1;
+        });
+
+        let bagsHtml = '<div class="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-2">' +
+          '<div class="flex justify-between items-center">' +
+            '<h3 class="text-sm font-bold text-amber-900 flex items-center gap-1.5">' +
+              '<span>🛍️</span> <span>[' + s.name + '] 個人分袋打包叫餐清單</span>' +
+            '</h3>' +
+            '<span class="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">向店家報「一袋一袋裝」專用</span>' +
+          '</div>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs pt-1">';
+
+        Object.values(userBags).forEach((bag, idx) => {
+          const itemListStr = Object.entries(bag.items).map(([name, qty]) => `${name} × ${qty}`).join('、');
+          bagsHtml += '<div class="bg-white border border-amber-200 rounded-xl p-3 space-y-1 shadow-2xs">' +
+            '<div class="flex justify-between items-center font-bold text-slate-800">' +
+              '<span>袋子 #' + (idx + 1) + '：' + bag.userName + '</span>' +
+              '<span class="text-amber-700">$' + bag.bagTotal + '</span>' +
+            '</div>' +
+            '<p class="text-slate-600 text-[11px] leading-relaxed">' + itemListStr + '</p>' +
+          '</div>';
+        });
+
+        bagsHtml += '</div></div>';
+        container.innerHTML += bagsHtml;
+      });
+    }
+
+    // 3. 個人對帳核銷清單
     function renderUserAggregatedOrders(orders) {
       const container = document.getElementById('userOrdersContainer');
       if (!orders || orders.length === 0) {
@@ -298,20 +372,35 @@
       loadAdminData();
     }
 
+    // 打開修改彈窗 (只過濾同店家品項)
     function openEditModal(orderId) {
       const order = rawOrders.find(o => o.id === orderId);
       if (!order) return;
+
       activeEditingOrderId = orderId;
       document.getElementById('modalUserName').value = order.user_name;
       document.getElementById('modalPrice').value = order.price;
       document.getElementById('modalNote').value = order.note || '';
 
+      // 1. 抓出該餐點原本的店家
+      const originalItem = availableMenuItems.find(m => m.id === order.item_id);
+      const targetStoreId = originalItem ? originalItem.store_id : null;
+      const storeName = originalItem ? originalItem.store_name : (order.store_name || '');
+
+      document.getElementById('modalStoreIndicator').innerText = storeName ? `店家：${storeName}` : '';
+
+      // 2. 只過濾該店品項
+      let sameStoreItems = availableMenuItems;
+      if (targetStoreId) {
+        sameStoreItems = availableMenuItems.filter(m => m.store_id === targetStoreId);
+      }
+
       const select = document.getElementById('modalMenuSelect');
       let optHtml = '';
-      availableMenuItems.forEach(m => {
+      sameStoreItems.forEach(m => {
         const isSel = (m.id === order.item_id) ? 'selected' : '';
         optHtml += '<option value="' + m.id + '" data-price="' + m.price + '" ' + isSel + '>' +
-          '[' + m.store_name + '] ' + m.item_name + ' - $' + m.price +
+          m.item_name + ' - $' + m.price +
         '</option>';
       });
       select.innerHTML = optHtml;
