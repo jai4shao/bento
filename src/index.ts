@@ -237,7 +237,38 @@ app.post('/api/admin/order/paid', async (c) => {
     .run();
   return c.json({ success: true });
 });
+// 修改訂單內容 (換品項、備註、修改實收或應收金額)
+app.post('/api/admin/order/update', async (c) => {
+  try {
+    const { orderId, itemId, note, price } = await c.req.json();
+    if (!orderId || !itemId) {
+      return c.json({ success: false, message: '參數不完整' }, 400);
+    }
 
+    await c.env.DB.prepare(`
+      UPDATE orders 
+      SET item_id = ?, note = ?, price = ?
+      WHERE id = ?
+    `).bind(itemId, note || '', price, orderId).run();
+
+    return c.json({ success: true, message: '訂單更新成功！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '更新失敗' }, 500);
+  }
+});
+
+// 取消 / 刪除單筆訂單 (如果訂錯了想刪除)
+app.post('/api/admin/order/delete', async (c) => {
+  try {
+    const { orderId } = await c.req.json();
+    if (!orderId) return c.json({ success: false, message: '請提供訂單編號' }, 400);
+
+    await c.env.DB.prepare("DELETE FROM orders WHERE id = ?").bind(orderId).run();
+    return c.json({ success: true, message: '訂單已刪除！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
+  }
+});
 app.post('/api/admin/orders/reset', async (c) => {
   await c.env.DB.prepare("DELETE FROM orders").run();
   return c.json({ success: true, message: '已清空本週所有點餐紀錄！' });
