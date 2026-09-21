@@ -15,7 +15,7 @@
           <h1 class="text-2xl font-bold text-slate-800">📋 便當訂單核銷與統計</h1>
           <span id="lockStatusBadge" class="text-xs font-bold px-2.5 py-1 rounded-full border">載入中...</span>
         </div>
-        <p class="text-xs text-slate-500 mt-1">電話下單後請點擊「截止點餐」，支援一般便當統計與炸物滷味個人分袋打包</p>
+        <p class="text-xs text-slate-500 mt-1">電話下單後請點擊「截止點餐」，支援店家分卡報單與炸物滷味個人分袋打包</p>
       </div>
       <div class="flex items-center flex-wrap gap-2">
         <button id="toggleLockBtn" onclick="toggleOrderLock()" class="text-xs font-bold px-4 py-2 rounded-xl border shadow-sm transition">
@@ -27,25 +27,23 @@
       </div>
     </header>
 
-    <!-- 1. 叫餐統計 (分標準叫餐 與 個人打包合併叫餐) -->
-    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
+    <!-- 1. 叫餐統計區塊 (獨立店家分卡 + 合併叫餐分袋) -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-5">
       <div class="flex justify-between items-center border-b pb-3">
         <div>
-          <h2 class="text-lg font-bold text-slate-800">📊 店家叫餐加總統計</h2>
-          <p class="text-xs text-slate-500 mt-0.5">向店家報單總量</p>
+          <h2 class="text-lg font-bold text-slate-800">📊 店家叫餐報單統計</h2>
+          <p class="text-xs text-slate-500 mt-0.5">依各店家獨立成卡，電話報單一目了然（合併叫餐已自動移至下方分袋清單）</p>
         </div>
-        <span class="text-xs bg-blue-50 text-blue-700 font-bold px-3 py-1 rounded-full border border-blue-100" id="totalSummaryAmount">總額：$0</span>
+        <span class="text-xs bg-blue-50 text-blue-700 font-bold px-3 py-1 rounded-full border border-blue-100" id="totalSummaryAmount">全單總額：$0</span>
       </div>
 
-      <!-- 一般餐點統計表 -->
-      <div id="summaryContainer" class="overflow-x-auto text-sm">
-        <p class="text-slate-400 py-4 text-center">載入統計中...</p>
+      <!-- 🍱 一般店家叫餐卡片容器 (依店家分卡) -->
+      <div id="storeCallCardsContainer" class="space-y-4">
+        <p class="text-slate-400 py-4 text-center text-sm">載入叫餐統計中...</p>
       </div>
 
       <!-- 🛍️ 合併點餐專用叫餐區 (滷味、炸物、車輪餅等個人分袋裝) -->
-      <div id="bundledStoresContainer" class="space-y-3 pt-2">
-        <!-- 動態插入合併點餐分袋清單 -->
-      </div>
+      <div id="bundledStoresContainer" class="space-y-3 pt-2"></div>
     </section>
 
     <!-- 2. 個人對帳核銷 (依人合併) -->
@@ -123,12 +121,12 @@
         isCurrentlyLocked = statusJson.isLocked || false;
 
         renderLockStatus();
-        renderSummary(sumJson.data || []);
+        renderStoreCallCards(sumJson.data || []);
         renderBundledStoreOrders(rawOrders);
         renderUserAggregatedOrders(rawOrders);
       } catch (e) {
         console.error(e);
-        document.getElementById('summaryContainer').innerHTML = '<p class="text-red-500 py-4 text-center">載入資料失敗</p>';
+        document.getElementById('storeCallCardsContainer').innerHTML = '<p class="text-red-500 py-4 text-center text-sm">載入資料失敗</p>';
       }
     }
 
@@ -172,65 +170,129 @@
       }
     }
 
-    // 1. 標準統計叫餐表 (數量加總)
-    function renderSummary(summary) {
-      const container = document.getElementById('summaryContainer');
-      let total = 0;
+    // 判斷是否為合併點餐類店家
+    function isBundledCategory(cat) {
+      if (!cat) return false;
+      const c = cat.toLowerCase();
+      return c.includes('合併點餐') || c.includes('滷味') || c.includes('炸物') || c.includes('車輪餅') || c.includes('點心');
+    }
+
+    // 1. 一般店家叫餐報單區 (依店家分卡展示，並自動過濾排除合併點餐)
+    function renderStoreCallCards(summary) {
+      const container = document.getElementById('storeCallCardsContainer');
+      let grandTotal = 0;
+
       if (!summary || summary.length === 0) {
-        container.innerHTML = '<p class="text-slate-400 py-4 text-center">目前無訂單統計資料</p>';
-        document.getElementById('totalSummaryAmount').innerText = '總額：$0';
+        container.innerHTML = '<p class="text-slate-400 py-4 text-center text-sm">目前無訂單統計資料</p>';
+        document.getElementById('totalSummaryAmount').innerText = '全單總額：$0';
         return;
       }
 
-      summary.forEach(s => total += (s.subtotal || 0));
-      document.getElementById('totalSummaryAmount').innerText = '總額：$' + total;
+      // 計算全單總額 (包含合併點餐)
+      summary.forEach(s => grandTotal += (s.subtotal || 0));
+      document.getElementById('totalSummaryAmount').innerText = '全單總額：$' + grandTotal;
 
-      let html = '<table class="w-full text-left border-collapse">' +
-        '<thead><tr class="border-b border-slate-200 text-slate-500 text-xs">' +
-          '<th class="py-2.5 px-3">店家</th>' +
-          '<th class="py-2.5 px-3">品項名稱</th>' +
-          '<th class="py-2.5 px-3">備註</th>' +
-          '<th class="py-2.5 px-3 text-center">數量</th>' +
-          '<th class="py-2.5 px-3 text-right">小計</th>' +
-        '</tr></thead><tbody class="divide-y divide-slate-100">';
-
-      summary.forEach(s => {
-        html += '<tr class="hover:bg-slate-50 transition">' +
-          '<td class="py-2.5 px-3 font-semibold text-blue-600">[' + (s.store_name || '未指定') + ']</td>' +
-          '<td class="py-2.5 px-3 font-medium text-slate-800">' + s.item_name + '</td>' +
-          '<td class="py-2.5 px-3 text-slate-500 text-xs">' + (s.note || '-') + '</td>' +
-          '<td class="py-2.5 px-3 text-center font-bold text-slate-800">' + s.qty + '</td>' +
-          '<td class="py-2.5 px-3 text-right font-bold text-slate-700">$' + s.subtotal + '</td>' +
-        '</tr>';
+      // 建立「店家名稱 -> 店家資料」的快取，方便查電話與分類
+      const storeMetaMap = {};
+      allStoresList.forEach(st => {
+        storeMetaMap[st.name] = st;
       });
-      html += '</tbody></table>';
+
+      // 依店家分組，但排除「合併點餐」店家
+      const storeGroups = {};
+      summary.forEach(row => {
+        const storeName = row.store_name || '未指定店家';
+        const stMeta = storeMetaMap[storeName];
+
+        // 若該店分類屬於「合併點餐」，跳過不在此表顯示
+        if (stMeta && isBundledCategory(stMeta.category)) {
+          return;
+        }
+
+        if (!storeGroups[storeName]) {
+          storeGroups[storeName] = {
+            storeName: storeName,
+            phone: stMeta ? stMeta.phone : '',
+            category: stMeta ? stMeta.category : '便當',
+            items: [],
+            totalQty: 0,
+            totalAmount: 0
+          };
+        }
+
+        storeGroups[storeName].items.push(row);
+        storeGroups[storeName].totalQty += Number(row.qty || 0);
+        storeGroups[storeName].totalAmount += Number(row.subtotal || 0);
+      });
+
+      const storeKeys = Object.keys(storeGroups);
+      if (storeKeys.length === 0) {
+        container.innerHTML = '<div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center text-slate-400 text-xs">目前無便當/飲料類餐點（所有餐點均屬下方合併分袋清單）</div>';
+        return;
+      }
+
+      let html = '';
+      storeKeys.forEach(sName => {
+        const group = storeGroups[sName];
+        const isDrink = group.category === '飲料';
+        const badgeColor = isDrink ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200';
+
+        html += `
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-200 pb-2.5">
+              <div class="flex items-center space-x-2">
+                <span class="text-base font-bold text-slate-800">${group.storeName}</span>
+                <span class="text-[11px] font-bold px-2 py-0.5 rounded border ${badgeColor}">${group.category}</span>
+                ${group.phone ? `<span class="text-xs text-slate-500 font-mono">📞 ${group.phone}</span>` : ''}
+              </div>
+              <div class="flex items-center space-x-2 text-xs">
+                <span class="font-bold text-slate-600 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">共 ${group.totalQty} 份</span>
+                <span class="font-bold text-blue-700 bg-blue-100/70 border border-blue-200 px-2.5 py-1 rounded-lg">合計：$${group.totalAmount}</span>
+              </div>
+            </div>
+
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="text-slate-400 border-b border-slate-200">
+                  <th class="py-1.5 px-2">品項名稱</th>
+                  <th class="py-1.5 px-2">規格 / 備註</th>
+                  <th class="py-1.5 px-2 text-center w-16">數量</th>
+                  <th class="py-1.5 px-2 text-right w-20">小計</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200/60">
+                ${group.items.map(it => `
+                  <tr class="hover:bg-white/60 transition">
+                    <td class="py-2 px-2 font-bold text-slate-800">${it.item_name}</td>
+                    <td class="py-2 px-2 text-slate-600 font-medium">${it.note || '-'}</td>
+                    <td class="py-2 px-2 text-center font-bold text-slate-800 text-sm">${it.qty}</td>                     <td class="py-2 px-2 text-right font-bold text-slate-700">$${it.subtotal}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      });
+
       container.innerHTML = html;
     }
 
-    // 2. 判斷是否為「合併點餐類店家 (滷味/炸物/車輪餅/鹽酥雞/合併點餐)」
-    // 特別以個人為單位列出分袋打包明細，方便向店家報單「分裝打包」
+    // 2. 合併點餐個人分袋打包專區 (向店家報單分袋專用)
     function renderBundledStoreOrders(orders) {
       const container = document.getElementById('bundledStoresContainer');
       container.innerHTML = '';
-
-      // 篩選出分類標註為「合併點餐」或含有炸物、滷味、車輪餅等關鍵字的店家
-      const isBundledCategory = (cat) => {
-        if (!cat) return false;
-        const c = cat.toLowerCase();
-        return c.includes('合併點餐') || c.includes('滷味') || c.includes('炸物') || c.includes('車輪餅') || c.includes('點心');
-      };
 
       const bundledStores = allStoresList.filter(s => isBundledCategory(s.category));
       if (bundledStores.length === 0) return;
 
       bundledStores.forEach(s => {
-        // 找出這間店的所有訂單
         const storeOrders = orders.filter(o => o.store_name === s.name);
         if (storeOrders.length === 0) return;
 
-        // 依人員歸併其所點的品項
+        let storeTotal = 0;
         const userBags = {};
         storeOrders.forEach(o => {
+          storeTotal += Number(o.price || 0);
           if (!userBags[o.user_name]) {
             userBags[o.user_name] = { userName: o.user_name, items: {}, bagTotal: 0 };
           }
@@ -239,24 +301,35 @@
           userBags[o.user_name].items[key] = (userBags[o.user_name].items[key] || 0) + 1;
         });
 
-        let bagsHtml = '<div class="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-2">' +
-          '<div class="flex justify-between items-center">' +
-            '<h3 class="text-sm font-bold text-amber-900 flex items-center gap-1.5">' +
-              '<span>🛍️</span> <span>[' + s.name + '] 個人分袋打包叫餐清單</span>' +
-            '</h3>' +
-            '<span class="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">向店家報「一袋一袋裝」專用</span>' +
-          '</div>' +
-          '<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs pt-1">';
+        let bagsHtml = `
+          <div class="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-3">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-amber-200 pb-2.5">
+              <div class="flex items-center space-x-2">
+                <span class="text-base font-bold text-amber-900 flex items-center gap-1.5">
+                  <span>🛍️</span> <span>[${s.name}] 個人分袋叫餐清單</span>
+                </span>
+                ${s.phone ? `<span class="text-xs text-amber-700 font-mono">📞 ${s.phone}</span>` : ''}
+              </div>
+              <div class="flex items-center space-x-2 text-xs">
+                <span class="font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2.5 py-1 rounded-lg">共 ${Object.keys(userBags).length} 袋</span>
+                <span class="font-bold text-amber-900 bg-amber-200/80 border border-amber-300 px-2.5 py-1 rounded-lg">店家合計：$${storeTotal}</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 text-xs pt-1">
+        `;
 
         Object.values(userBags).forEach((bag, idx) => {
           const itemListStr = Object.entries(bag.items).map(([name, qty]) => `${name} × ${qty}`).join('、');
-          bagsHtml += '<div class="bg-white border border-amber-200 rounded-xl p-3 space-y-1 shadow-2xs">' +
-            '<div class="flex justify-between items-center font-bold text-slate-800">' +
-              '<span>袋子 #' + (idx + 1) + '：' + bag.userName + '</span>' +
-              '<span class="text-amber-700">$' + bag.bagTotal + '</span>' +
-            '</div>' +
-            '<p class="text-slate-600 text-[11px] leading-relaxed">' + itemListStr + '</p>' +
-          '</div>';
+          bagsHtml += `
+            <div class="bg-white border border-amber-200 rounded-xl p-3 space-y-1.5 shadow-2xs">
+              <div class="flex justify-between items-center font-bold text-slate-800 border-b border-slate-100 pb-1">
+                <span>袋子 #${idx + 1}：${bag.userName}</span>
+                <span class="text-amber-700">$${bag.bagTotal}</span>
+              </div>
+              <p class="text-slate-600 text-[11px] leading-relaxed">${itemListStr}</p>
+            </div>
+          `;
         });
 
         bagsHtml += '</div></div>';
@@ -372,7 +445,6 @@
       loadAdminData();
     }
 
-    // 打開修改彈窗 (只過濾同店家品項)
     function openEditModal(orderId) {
       const order = rawOrders.find(o => o.id === orderId);
       if (!order) return;
@@ -382,14 +454,12 @@
       document.getElementById('modalPrice').value = order.price;
       document.getElementById('modalNote').value = order.note || '';
 
-      // 1. 抓出該餐點原本的店家
       const originalItem = availableMenuItems.find(m => m.id === order.item_id);
       const targetStoreId = originalItem ? originalItem.store_id : null;
       const storeName = originalItem ? originalItem.store_name : (order.store_name || '');
 
       document.getElementById('modalStoreIndicator').innerText = storeName ? `店家：${storeName}` : '';
 
-      // 2. 只過濾該店品項
       let sameStoreItems = availableMenuItems;
       if (targetStoreId) {
         sameStoreItems = availableMenuItems.filter(m => m.store_id === targetStoreId);
