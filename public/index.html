@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -15,7 +13,7 @@
     <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex justify-between items-center">
       <div>
         <h1 class="text-2xl font-bold text-slate-800 tracking-tight">🍱 訂便當系統</h1>
-        <p class="text-xs text-slate-500 mt-1" id="orderStatus">載入系統狀態中...</p>
+        <p class="text-xs text-slate-500 mt-1">開放點餐中</p>
       </div>
       <div class="space-x-2">
         <a href="/store_admin" class="text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition">店家菜單</a>
@@ -27,15 +25,20 @@
     <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-5">
       <h2 class="text-lg font-bold text-slate-800 border-b pb-3">點餐登記</h2>
 
-      <!-- 姓名選擇 -->
+      <!-- 姓名選擇與新增按鈕 -->
       <div>
-        <label class="block text-sm font-semibold text-slate-700 mb-1.5">點餐人員</label>
-        <select id="userSelect" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition">
+        <div class="flex justify-between items-center mb-1.5">
+          <label class="text-sm font-semibold text-slate-700">點餐人員</label>
+          <button type="button" onclick="addNewUser()" class="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline">
+            ➕ 新增人員
+          </button>
+        </div>
+        <select id="userSelect" onchange="onUserChange()" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition">
           <option value="">-- 請選擇您的名字 --</option>
         </select>
       </div>
 
-      <!-- 店家分類與品項選擇 -->
+      <!-- 餐點品項 -->
       <div>
         <label class="block text-sm font-semibold text-slate-700 mb-1.5">餐點選擇</label>
         <select id="menuSelect" onchange="onItemChange()" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition">
@@ -49,7 +52,7 @@
 
       <!-- 備註 -->
       <div>
-        <label class="block text-sm font-semibold text-slate-700 mb-1.5">客製備註（如：飯少、不辣、加蛋）</label>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">客製備註（如：飯少、不辣）</label>
         <input type="text" id="orderNote" placeholder="若無特殊需求可留空" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-sm">
       </div>
 
@@ -59,7 +62,7 @@
       </button>
     </section>
 
-    <!-- 已登記訂單清單 -->
+    <!-- 今日已登記清單 -->
     <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-lg font-bold text-slate-800">今日登記清單</h2>
@@ -73,47 +76,77 @@
   </div>
 
   <script>
-    let globalMenuItems = [];
+    const STORAGE_KEY = 'bento_last_user';
 
     async function initPage() {
       try {
         const res = await fetch('/api/init-order-page');
         const json = await res.json();
-        if (!json.success) throw new Error('API 回傳失敗');
+        if (!json.success) throw new Error();
 
-        const { settings, stores, menuItems, users, orders } = json.data;
-        globalMenuItems = menuItems;
+        const { stores, menuItems, users, orders } = json.data;
 
-        // 系統狀態
-        document.getElementById('orderStatus').innerText = '開放點餐中';
-
-        // 渲染人員下拉
+        // 渲染人員清單
         const userSelect = document.getElementById('userSelect');
         userSelect.innerHTML = '<option value="">-- 請選擇您的名字 --</option>' +
           users.map(u => `<option value="${u.name}">${u.name}</option>`).join('');
 
-        // 渲染品項下拉 (依店家分類分組)
+        // 自動還原上次記錄的使用者
+        const lastUser = localStorage.getItem(STORAGE_KEY);
+        if (lastUser && users.some(u => u.name === lastUser)) {
+          userSelect.value = lastUser;
+        }
+
+        // 渲染品項 (只呈現供餐中店家的品項)
+        const activeStores = stores.filter(s => s.is_active === 1);
         const menuSelect = document.getElementById('menuSelect');
         let menuHtml = '<option value="">-- 請選擇餐點品項 --</option>';
-        stores.forEach(store => {
-          const items = menuItems.filter(m => m.store_id === store.id);
-          if (items.length > 0) {
-            menuHtml += `<optgroup label="🏬 ${store.name} (${store.category || '一般'})">`;
-            items.forEach(item => {
-              menuHtml += `<option value="${item.id}" data-price="${item.price}" data-store="${store.name}">
-                ${item.item_name} - $${item.price}
-              </option>`;
-            });
-            menuHtml += `</optgroup>`;
-          }
-        });
+
+        if (activeStores.length === 0) {
+          menuHtml += '<option disabled>⚠️ 今日尚無店家供餐中，請至後台開啟</option>';
+        } else {
+          activeStores.forEach(store => {
+            const items = menuItems.filter(m => m.store_id === store.id);
+            if (items.length > 0) {
+              menuHtml += `<optgroup label="🏬 ${store.name} (${store.category || '一般'})">`;
+              items.forEach(item => {
+                menuHtml += `<option value="${item.id}" data-price="${item.price}" data-store="${store.name}">
+                  ${item.item_name} - $${item.price}
+                </option>`;
+              });
+              menuHtml += `</optgroup>`;
+            }
+          });
+        }
         menuSelect.innerHTML = menuHtml;
 
-        // 渲染訂單清單
         renderOrders(orders);
       } catch (err) {
-        console.error(err);
-        document.getElementById('orderList').innerHTML = '<p class="text-red-500 py-4 text-center">資料庫連線中或尚未建立資料表</p>';
+        document.getElementById('orderList').innerHTML = '<p class="text-red-500 py-4 text-center">讀取資料異常，請稍後再試</p>';
+      }
+    }
+
+    function onUserChange() {
+      const val = document.getElementById('userSelect').value;
+      if (val) localStorage.setItem(STORAGE_KEY, val);
+    }
+
+    async function addNewUser() {
+      const name = prompt('請輸入新同學/同事姓名：');
+      if (!name || !name.trim()) return;
+
+      const res = await fetch('/api/user/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() })
+      });
+      const result = await res.json();
+      if (result.success) {
+        localStorage.setItem(STORAGE_KEY, name.trim());
+        alert(`已成功新增人員：${name.trim()}`);
+        initPage();
+      } else {
+        alert(result.message || '新增失敗');
       }
     }
 
@@ -175,14 +208,13 @@
         });
         const result = await res.json();
         if (result.success) {
+          localStorage.setItem(STORAGE_KEY, userName);
           alert('🎉 點餐登記成功！');
           document.getElementById('orderNote').value = '';
           initPage();
         } else {
           alert('點餐失敗：' + (result.message || '未知錯誤'));
         }
-      } catch (e) {
-        alert('網路請求異常，請稍後重試');
       } finally {
         btn.disabled = false;
         btn.innerText = '確認送出點餐';
