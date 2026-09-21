@@ -132,23 +132,28 @@
     }
 
     async function addNewUser() {
-      const name = prompt('請輸入新同學/同事姓名：');
-      if (!name || !name.trim()) return;
+  const name = prompt('請輸入新同學/同事姓名：');
+  if (!name || !name.trim()) return;
 
-      const res = await fetch('/api/user/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() })
-      });
-      const result = await res.json();
-      if (result.success) {
-        localStorage.setItem(STORAGE_KEY, name.trim());
-        alert(`已成功新增人員：${name.trim()}`);
-        initPage();
-      } else {
-        alert(result.message || '新增失敗');
-      }
+  try {
+    const res = await fetch('/api/user/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() })
+    });
+    const result = await res.json();
+    if (result.success) {
+      localStorage.setItem(STORAGE_KEY, name.trim());
+      alert(`已成功新增人員：${name.trim()}`);
+      initPage();
+    } else {
+      // 這裡會彈出真實的錯誤訊息（例如 UNIQUE constraint failed）
+      alert(result.message || '新增失敗');
     }
+  } catch (e) {
+    alert('網路連線異常，請稍後再試');
+  }
+}
 
     function onItemChange() {
       const select = document.getElementById('menuSelect');
