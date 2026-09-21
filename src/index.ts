@@ -1,521 +1,417 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>今日便當與飲料點餐</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-100 min-h-screen text-slate-800 p-4 md:p-8">
-  <div class="max-w-4xl mx-auto space-y-6">
+import { Hono } from 'hono';
 
-    <!-- 頂部卡片 -->
-    <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-slate-800">🍱 今日便當 / 飲料登記</h1>
-        <p class="text-xs text-slate-500 mt-1">選定姓名後點擊店家挑選餐點，支援多份與規格化備註</p>
-      </div>
-      <div class="space-x-2">
-        <a href="/admin" class="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3.5 py-2 rounded-xl border border-blue-200 transition">訂單核銷後台</a>
-        <a href="/store_admin" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-200 transition">店家管理</a>
-      </div>
-    </header>
+type Bindings = {
+  DB: D1Database;
+  ASSETS: Fetcher;
+};
 
-    <!-- 點餐操作卡片 -->
-    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-5">
-      
-      <!-- 1. 人員選擇 -->
-      <div>
-        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">1. 選擇點餐姓名</label>
-        <div class="flex gap-2">
-          <select id="userSelect" onchange="onUserSelectChange()" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 bg-slate-50 focus:bg-white text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">-- 請選擇您的名字 --</option>
-          </select>
-          <button onclick="addNewUser()" class="whitespace-nowrap bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition">
-            ➕ 新增人員
-          </button>
-        </div>
-      </div>
+const app = new Hono<{ Bindings: Bindings }>();
 
-      <!-- 2. 店家按鈕區 (點擊跳出該店菜單 Modal) -->
-      <div>
-        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">2. 點選店家瀏覽菜單</label>
-        <div id="storeButtonsContainer" class="flex flex-wrap gap-2.5">
-          <!-- 動態載入店家按鈕 -->
-        </div>
-      </div>
+// ==========================================
+// 0. 靜態頁面導向
+// ==========================================
+app.get('/', (c) => c.redirect('/index.html'));
+app.get('/index', (c) => c.env.ASSETS.fetch(new Request(new URL('/index.html', c.req.url))));
+app.get('/admin', (c) => c.env.ASSETS.fetch(new Request(new URL('/admin.html', c.req.url))));
+app.get('/store_admin', (c) => c.env.ASSETS.fetch(new Request(new URL('/store_admin.html', c.req.url))));
 
-      <!-- 3. 已選餐點清單 (購物車) -->
-      <div class="border-t pt-4">
-        <div class="flex justify-between items-center mb-2">
-          <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">🛒 已選餐點清單</label>
-          <span id="cartTotalPrice" class="text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg">小計：$0</span>
-        </div>
-        
-        <div id="cartContainer" class="space-y-2 mb-4">
-          <p class="text-xs text-slate-400 py-4 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
-            尚未加入任何餐點，請點擊上方店家按鈕挑選餐點
-          </p>
-        </div>
+// ==========================================
+// 🛠️ 資料庫檢查與一鍵修復端點 (除錯專用)
+// ==========================================
+// 1. 查看線上 Worker 到底連到哪顆 D1、裡面有哪些表
+app.get('/api/debug-db', async (c) => {
+  try {
+    const tables = await c.env.DB.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table'"
+    ).all();
+    return c.json({
+      success: true,
+      message: '成功連上 D1',
+      tables: tables.results
+    });
+  } catch (err: any) {
+    return c.json({
+      success: false,
+      message: '連線 D1 失敗: ' + (err?.message || err)
+    }, 500);
+  }
+});
 
-        <button onclick="submitBatchOrder()" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow transition text-sm">
-          確認送出全部點餐
-        </button>
-      </div>
-    </section>
+// 2. 線上一鍵自動建表修復 (不管當初綁到哪顆空資料庫，點開就建好)
+app.get('/api/setup-database', async (c) => {
+  try {
+    const db = c.env.DB;
+    await db.batch([
+      db.prepare(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        avatar_url TEXT DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`),
+      db.prepare(`CREATE TABLE IF NOT EXISTS stores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT DEFAULT '',
+        category TEXT DEFAULT '便當',
+        is_active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`),
+      db.prepare(`CREATE TABLE IF NOT EXISTS menu_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        store_id INTEGER NOT NULL,
+        item_name TEXT NOT NULL,
+        price INTEGER NOT NULL DEFAULT 0,
+        is_available INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 0
+      )`),
+      db.prepare(`CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_name TEXT NOT NULL,
+        item_id INTEGER NOT NULL,
+        note TEXT DEFAULT '',
+        price INTEGER NOT NULL DEFAULT 0,
+        paid_amount INTEGER DEFAULT 0,
+        is_paid INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`),
+      db.prepare(`CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key TEXT PRIMARY KEY,
+        setting_value TEXT NOT NULL
+      )`),
+      db.prepare(`INSERT OR IGNORE INTO stores (id, name, phone, category, is_active) VALUES (1, '美味便當店', '04-7123456', '便當', 1)`),
+      db.prepare(`INSERT OR IGNORE INTO menu_items (id, store_id, item_name, price, is_available) VALUES (1, 1, '招牌排骨飯', 100, 1)`),
+      db.prepare(`INSERT OR IGNORE INTO menu_items (id, store_id, item_name, price, is_available) VALUES (2, 1, '香酥雞腿飯', 110, 1)`)
+    ]);
 
-    <!-- 今日已登記清單 -->
-    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-      <h2 class="text-lg font-bold text-slate-800 mb-4">📋 今日已登記清單</h2>
-      <div id="ordersContainer" class="overflow-x-auto text-sm">
-        <p class="text-slate-400 py-4 text-center">載入清單中...</p>
-      </div>
-    </section>
+    return c.json({ success: true, message: '🎉 資料庫所有資料表已成功強制建置完成！' });
+  } catch (err: any) {
+    return c.json({ success: false, error: err?.message || err }, 500);
+  }
+});
 
-  </div>
+// ==========================================
+// 1. 初始化前台資料 API
+// ==========================================
+app.get('/api/init-order-page', async (c) => {
+  const db = c.env.DB;
 
-  <!-- 🏪 菜單選擇彈窗 Modal (首頁不再被長菜單佔據) -->
-  <div id="menuModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
-      <!-- Modal 標題列 -->
-      <div class="p-4 sm:p-5 border-b flex justify-between items-center bg-slate-50">
-        <div>
-          <h3 id="modalStoreTitle" class="text-lg font-bold text-slate-800">店家菜單</h3>
-          <p id="modalStoreSubtitle" class="text-xs text-slate-500 mt-0.5"></p>
-        </div>
-        <button onclick="closeMenuModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2 leading-none">&times;</button>
-      </div>
+  const stores = await db.prepare("SELECT * FROM stores ORDER BY is_active DESC, category ASC, id ASC").all();
+  const menuItems = await db.prepare(`
+    SELECT m.*, s.category AS store_category, s.name AS store_name 
+    FROM menu_items m
+    JOIN stores s ON m.store_id = s.id
+    WHERE m.is_available = 1
+    ORDER BY m.sort_order ASC, m.id ASC
+  `).all();
+  const users = await db.prepare("SELECT id, name FROM users ORDER BY id ASC").all();
+  const orders = await db.prepare(`
+    SELECT o.*, m.item_name, s.name AS store_name
+    FROM orders o
+    JOIN menu_items m ON o.item_id = m.id
+    JOIN stores s ON m.store_id = s.id
+    ORDER BY o.id DESC
+  `).all();
 
-      <!-- 搜尋菜單 -->
-      <div class="p-3 border-b bg-white">
-        <input type="text" id="menuSearchInput" oninput="onMenuSearch()" placeholder="🔍 搜尋該店品項名稱..." class="w-full text-xs border border-slate-300 rounded-xl px-3.5 py-2 outline-none focus:ring-2 focus:ring-blue-500">
-      </div>
+  return c.json({
+    success: true,
+    data: {
+      stores: stores.results,
+      menuItems: menuItems.results,
+      users: users.results,
+      orders: orders.results
+    }
+  });
+});
 
-      <!-- 菜單品項卡片網格 -->
-      <div id="modalMenuGrid" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm flex-1">
-        <!-- 動態填入品項卡片 -->
-      </div>
+// ==========================================
+// 2. 點餐與人員 API
+// ==========================================
+// 批次送出點餐 (支援一次點多份/多種餐點)
+app.post('/api/order/submit', async (c) => {
+  try {
+    const { userName, items } = await c.req.json();
+    if (!userName || !items || !Array.isArray(items) || items.length === 0) {
+      return c.json({ success: false, message: '請選擇姓名與至少一項餐點' }, 400);
+    }
 
-      <!-- Modal 底部關閉按鈕 -->
-      <div class="p-3 border-t bg-slate-50 flex justify-between items-center">
-        <span id="modalCartCount" class="text-xs font-semibold text-slate-600">已選 0 份</span>
-        <button onclick="closeMenuModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2 rounded-xl transition">
-          完成挑選，返回清單
-        </button>
-      </div>
-    </div>
-  </div>
+    const db = c.env.DB;
+    const statements: any[] = [];
 
-  <!-- 🥤 規格備註選擇彈窗 Modal (針對飲料甜度冰量、或餐點備註) -->
-  <div id="itemOptionModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-5 space-y-4">
-      <div class="flex justify-between items-center border-b pb-3">
-        <div>
-          <h3 id="optionItemName" class="text-base font-bold text-slate-800">餐點規格</h3>
-          <p id="optionItemPrice" class="text-xs text-blue-600 font-bold mt-0.5">$0</p>
-        </div>
-        <button onclick="closeOptionModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
-      </div>
-
-      <!-- 甜度選擇 (若是飲料店顯示) -->
-      <div id="sugarSection" class="space-y-1.5">
-        <label class="text-xs font-bold text-slate-600">糖量選擇</label>
-        <div class="grid grid-cols-5 gap-1 text-xs" id="sugarGroup">
-          <button type="button" onclick="selectSugar('無糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">無糖</button>
-          <button type="button" onclick="selectSugar('微糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">微糖</button>
-          <button type="button" onclick="selectSugar('半糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">半糖</button>
-          <button type="button" onclick="selectSugar('少糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">少糖</button>
-          <button type="button" onclick="selectSugar('正常糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">正常糖</button>
-        </div>
-      </div>
-
-      <!-- 冰量選擇 (若是飲料店顯示) -->
-      <div id="iceSection" class="space-y-1.5">
-        <label class="text-xs font-bold text-slate-600">冰量選擇</label>
-        <div class="grid grid-cols-4 sm:grid-cols-7 gap-1 text-[11px]" id="iceGroup">
-          <button type="button" onclick="selectIce('熱')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">熱</button>
-          <button type="button" onclick="selectIce('常溫')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">常溫</button>
-          <button type="button" onclick="selectIce('去冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">去冰</button>
-          <button type="button" onclick="selectIce('微冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">微冰</button>
-          <button type="button" onclick="selectIce('半冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">半冰</button>
-          <button type="button" onclick="selectIce('少冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">少冰</button>
-          <button type="button" onclick="selectIce('正常冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">正常冰</button>
-        </div>
-      </div>
-
-      <!-- 其他客製備註 -->
-      <div>
-        <label class="text-xs font-bold text-slate-600 mb-1 block">其他備註需求</label>
-        <input type="text" id="customNoteInput" placeholder="如：少飯、不辣、加珍珠等" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
-      </div>
-
-      <!-- 確認加入按鈕 -->
-      <div class="flex justify-end space-x-2 pt-2 border-t">
-        <button onclick="closeOptionModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
-        <button onclick="confirmAddToCart()" class="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">加入清單</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const STORAGE_KEY = 'bento_user_name';
-    let allStores = [];
-    let allMenuItems = [];
-    let activeModalStoreId = null;
-    let currentPendingItem = null;
-    let selectedSugar = '';
-    let selectedIce = '';
-    let cart = [];
-
-    async function initPage() {
-      try {
-        const res = await fetch('/api/init-order-page');
-        const json = await res.json();
-        if (!json.success) throw new Error();
-
-        const { stores, menuItems, users, orders } = json.data;
-        allStores = stores.filter(s => s.is_active == 1);
-        allMenuItems = menuItems;
-
-        renderUsers(users);
-        renderStoreButtons();
-        renderOrders(orders);
-      } catch (err) {
-        console.error(err);
+    // 每份餐點依據數量展開寫入 orders 表格
+    for (const item of items) {
+      const qty = Math.max(1, Number(item.qty || 1));
+      for (let i = 0; i < qty; i++) {
+        statements.push(
+          db.prepare(`
+            INSERT INTO orders (user_name, item_id, note, price, paid_amount, is_paid)
+            VALUES (?, ?, ?, ?, 0, 0)
+          `).bind(userName, item.itemId, item.note || '', Number(item.price || 0))
+        );
       }
     }
 
-    function renderUsers(users) {
-      const select = document.getElementById('userSelect');
-      const savedUser = localStorage.getItem(STORAGE_KEY);
-      let html = '<option value="">-- 請選擇您的名字 --</option>';
-      users.forEach(u => {
-        const isSel = (u.name === savedUser) ? 'selected' : '';
-        html += '<option value="' + u.name + '" ' + isSel + '>' + u.name + '</option>';
-      });
-      select.innerHTML = html;
+    await db.batch(statements);
+    return c.json({ success: true, message: `成功送出 ${statements.length} 份餐點！` });
+  } catch (err: any) {
+    console.error('Submit orders error:', err);
+    return c.json({ success: false, message: err?.message || '點餐送出失敗' }, 500);
+  }
+});
+
+// 新增人員 API
+app.post('/api/user/add', async (c) => {
+  try {
+    const body = await c.req.json();
+    const name = body?.name ? String(body.name).trim() : '';
+
+    if (!name) {
+      return c.json({ success: false, message: '姓名不能為空' }, 400);
     }
 
-    function onUserSelectChange() {
-      const val = document.getElementById('userSelect').value;
-      if (val) localStorage.setItem(STORAGE_KEY, val);
+    await c.env.DB.prepare(
+      "INSERT INTO users (name) VALUES (?)"
+    ).bind(name).run();
+
+    return c.json({ success: true, message: '新增成功' });
+  } catch (err: any) {
+    console.error('Add user error:', err);
+    return c.json({ success: false, message: `資料庫錯誤: ${err?.message || err}` }, 400);
+  }
+});
+
+// ==========================================
+// 3. 店家與菜單管理 API
+// ==========================================
+// 新增店家
+app.post('/api/store/add', async (c) => {
+  const { name, phone, category } = await c.req.json();
+  if (!name) return c.json({ success: false, message: '請輸入店家名稱' }, 400);
+
+  await c.env.DB.prepare("INSERT INTO stores (name, phone, category, is_active) VALUES (?, ?, ?, 1)")
+    .bind(name.trim(), phone || '', category || '一般')
+    .run();
+
+  return c.json({ success: true, message: '店家新增成功' });
+});
+// 執行自訂 SQL (強化版：自動清洗 Markdown、去除空行、逐句批次執行)
+app.post('/api/admin/raw-sql', async (c) => {
+  try {
+    const body = await c.req.json();
+    let sqlText = body?.sql ? String(body.sql) : '';
+
+    if (!sqlText.trim()) {
+      return c.json({ success: false, message: '請輸入 SQL 語法' }, 400);
     }
 
-    async function addNewUser() {
-      const name = prompt('請輸入新同學/同事姓名：');
-      if (!name || !name.trim()) return;
+    // 1. 自動去除 AI 常見的 ```sql 與 ```
+    sqlText = sqlText.replace(/```[a-zA-Z]*/g, '').replace(/```/g, '').trim();
 
-      const res = await fetch('/api/user/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() })
-      });
-      const result = await res.json();
-      if (result.success) {
-        localStorage.setItem(STORAGE_KEY, name.trim());
-        initPage();
-      } else {
-        alert(result.message || '新增失敗');
-      }
+    // 2. 依照分號切分成獨立語句，去除多餘空行
+    const statements = sqlText
+      .split(';')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    if (statements.length === 0) {
+      return c.json({ success: false, message: '未偵測到有效的 SQL 指令' }, 400);
     }
 
-    // 渲染店家按鈕 (點擊跳出該店 Modal)
-    function renderStoreButtons() {
-      const container = document.getElementById('storeButtonsContainer');
-      if (!allStores || allStores.length === 0) {
-        container.innerHTML = '<span class="text-xs text-slate-400 py-1">目前無供餐店家</span>';
-        return;
-      }
+    // 3. 轉成 D1 batch 批次執行
+    const batchList = statements.map(stmt => c.env.DB.prepare(stmt));
+    await c.env.DB.batch(batchList);
 
-      let html = '';
-      allStores.forEach(s => {
-        const isDrink = s.category && (s.category.includes('飲料') || s.category.includes('茶'));
-        const icon = isDrink ? '🥤' : '🍱';
+    return c.json({ success: true, message: `成功匯入！共執行了 ${statements.length} 條 SQL 語句。` });
+  } catch (err: any) {
+    console.error('Raw SQL error:', err);
+    return c.json({ success: false, message: 'SQL 執行失敗: ' + (err?.message || err) }, 500);
+  }
+});
+// 切換店家供餐狀態
+app.post('/api/store/toggle', async (c) => {
+  const { storeId, isActive } = await c.req.json();
+  await c.env.DB.prepare("UPDATE stores SET is_active = ? WHERE id = ?")
+    .bind(isActive ? 1 : 0, storeId)
+    .run();
 
-        html += '<button onclick="openMenuModal(' + s.id + ')" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-400 shadow-sm transition">' +
-          '<span>' + icon + '</span>' +
-          '<span class="text-slate-800">' + s.name + '</span>' +
-          '<span class="text-[10px] text-blue-600 font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">' + (s.category || '一般') + '</span>' +
-        '</button>';
-      });
-      container.innerHTML = html;
+  return c.json({ success: true });
+});
+
+// 新增菜單品項
+app.post('/api/menu/add', async (c) => {
+  const { storeId, itemName, price } = await c.req.json();
+  if (!storeId || !itemName || price === undefined) {
+    return c.json({ success: false, message: '請提供完整品項資訊' }, 400);
+  }
+
+  await c.env.DB.prepare("INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES (?, ?, ?, 1)")
+    .bind(storeId, itemName.trim(), Number(price))
+    .run();
+
+  return c.json({ success: true, message: '品項新增成功' });
+});
+// 更新店家基本資訊 (店名、電話、分類)
+app.post('/api/store/update', async (c) => {
+  try {
+    const { storeId, name, phone, category } = await c.req.json();
+    if (!storeId || !name) return c.json({ success: false, message: '店家名稱不能為空' }, 400);
+
+    await c.env.DB.prepare(`
+      UPDATE stores 
+      SET name = ?, phone = ?, category = ? 
+      WHERE id = ?
+    `).bind(name.trim(), phone || '', category || '一般', storeId).run();
+
+    return c.json({ success: true, message: '店家資訊更新成功！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '更新失敗' }, 500);
+  }
+});
+
+// 更新個別菜單品項 (調價、改品名)
+app.post('/api/menu/update', async (c) => {
+  try {
+    const { itemId, itemName, price } = await c.req.json();
+    if (!itemId || !itemName || price === undefined) {
+      return c.json({ success: false, message: '品項名稱與價格為必填' }, 400);
     }
 
-    // 打開該店的菜單 Modal
-    function openMenuModal(storeId) {
-      const store = allStores.find(s => s.id === storeId);
-      if (!store) return;
+    await c.env.DB.prepare(`
+      UPDATE menu_items 
+      SET item_name = ?, price = ? 
+      WHERE id = ?
+    `).bind(itemName.trim(), Number(price), itemId).run();
 
-      activeModalStoreId = storeId;
-      document.getElementById('modalStoreTitle').innerText = store.name;
-      document.getElementById('modalStoreSubtitle').innerText = '分類：' + (store.category || '一般') + ' ｜ 電話：' + (store.phone || '無');
-      document.getElementById('menuSearchInput').value = '';
+    return c.json({ success: true, message: '品項更新成功！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '更新失敗' }, 500);
+  }
+});
 
-      renderModalMenuItems();
-      updateModalCartCount();
-      document.getElementById('menuModal').classList.remove('hidden');
+// 刪除單一餐點品項
+app.post('/api/menu/delete', async (c) => {
+  try {
+    const { itemId } = await c.req.json();
+    if (!itemId) return c.json({ success: false, message: '請提供品項ID' }, 400);
+
+    await c.env.DB.prepare("DELETE FROM menu_items WHERE id = ?").bind(itemId).run();
+    return c.json({ success: true, message: '品項已刪除！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
+  }
+});
+// ==========================================
+// 4. 後台管理與收款 API
+// ==========================================
+app.get('/api/admin/summary', async (c) => {
+  const query = `
+    SELECT 
+      s.id AS store_id, s.name AS store_name, s.category, s.phone AS store_phone,
+      m.item_name, o.note, m.price, 
+      COUNT(o.id) AS qty, 
+      SUM(o.price) AS subtotal
+    FROM orders o
+    JOIN menu_items m ON o.item_id = m.id
+    JOIN stores s ON m.store_id = s.id
+    GROUP BY s.id, o.item_id, o.note
+    ORDER BY s.category ASC, s.id ASC, m.sort_order ASC, qty DESC
+  `;
+  const { results } = await c.env.DB.prepare(query).all();
+  return c.json({ success: true, data: results });
+});
+
+app.get('/api/admin/orders', async (c) => {
+  const query = `
+    SELECT o.*, m.item_name, s.name AS store_name
+    FROM orders o
+    JOIN menu_items m ON o.item_id = m.id
+    JOIN stores s ON m.store_id = s.id
+    ORDER BY o.id DESC
+  `;
+  const { results } = await c.env.DB.prepare(query).all();
+  return c.json({ success: true, data: results });
+});
+
+app.post('/api/admin/order/paid', async (c) => {
+  const { orderId, paidAmount, isPaid } = await c.req.json();
+  await c.env.DB.prepare("UPDATE orders SET paid_amount = ?, is_paid = ? WHERE id = ?")
+    .bind(paidAmount, isPaid, orderId)
+    .run();
+  return c.json({ success: true });
+});
+// 1. 依個人（姓名）整筆更新付款狀態與實收金額
+app.post('/api/admin/user/paid', async (c) => {
+  try {
+    const { userName, paidAmount, isPaid } = await c.req.json();
+    if (!userName) return c.json({ success: false, message: '請提供姓名' }, 400);
+
+    // 一次性更新該員當前所有訂單的付款狀態與實收標記
+    await c.env.DB.prepare(`
+      UPDATE orders 
+      SET paid_amount = ?, is_paid = ? 
+      WHERE user_name = ?
+    `).bind(paidAmount, isPaid ? 1 : 0, userName).run();
+
+    return c.json({ success: true, message: '個人核銷已更新！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '更新失敗' }, 500);
+  }
+});
+
+// 2. 刪除店家 (連帶清理該店菜單)
+app.post('/api/store/delete', async (c) => {
+  try {
+    const { storeId } = await c.req.json();
+    if (!storeId) return c.json({ success: false, message: '請提供店家ID' }, 400);
+
+    const db = c.env.DB;
+    await db.batch([
+      db.prepare("DELETE FROM menu_items WHERE store_id = ?").bind(storeId),
+      db.prepare("DELETE FROM stores WHERE id = ?").bind(storeId)
+    ]);
+
+    return c.json({ success: true, message: '店家及菜單已成功刪除！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
+  }
+});
+// 修改訂單內容 (換品項、備註、修改實收或應收金額)
+app.post('/api/admin/order/update', async (c) => {
+  try {
+    const { orderId, itemId, note, price } = await c.req.json();
+    if (!orderId || !itemId) {
+      return c.json({ success: false, message: '參數不完整' }, 400);
     }
 
-    function closeMenuModal() {
-      document.getElementById('menuModal').classList.add('hidden');
-      activeModalStoreId = null;
-    }
+    await c.env.DB.prepare(`
+      UPDATE orders 
+      SET item_id = ?, note = ?, price = ?
+      WHERE id = ?
+    `).bind(itemId, note || '', price, orderId).run();
 
-    function onMenuSearch() {
-      renderModalMenuItems();
-    }
+    return c.json({ success: true, message: '訂單更新成功！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '更新失敗' }, 500);
+  }
+});
 
-    function renderModalMenuItems() {
-      const keyword = document.getElementById('menuSearchInput').value.trim().toLowerCase();
-      const container = document.getElementById('modalMenuGrid');
-      let items = allMenuItems.filter(m => m.store_id === activeModalStoreId);
+// 取消 / 刪除單筆訂單 (如果訂錯了想刪除)
+app.post('/api/admin/order/delete', async (c) => {
+  try {
+    const { orderId } = await c.req.json();
+    if (!orderId) return c.json({ success: false, message: '請提供訂單編號' }, 400);
 
-      if (keyword) {
-        items = items.filter(m => m.item_name.toLowerCase().includes(keyword));
-      }
+    await c.env.DB.prepare("DELETE FROM orders WHERE id = ?").bind(orderId).run();
+    return c.json({ success: true, message: '訂單已刪除！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
+  }
+});
+app.post('/api/admin/orders/reset', async (c) => {
+  await c.env.DB.prepare("DELETE FROM orders").run();
+  return c.json({ success: true, message: '已清空本週所有點餐紀錄！' });
+});
 
-      if (items.length === 0) {
-        container.innerHTML = '<p class="col-span-full text-slate-400 py-8 text-center text-xs">查無符合的餐點品項</p>';
-        return;
-      }
+// 靜態資產全域兜底
+app.get('/*', async (c) => c.env.ASSETS.fetch(c.req.raw));
 
-      let html = '';
-      items.forEach(it => {
-        html += '<div onclick="openOptionModal(' + it.id + ')" class="cursor-pointer p-3 rounded-xl border border-slate-200 bg-white hover:border-blue-500 hover:shadow-sm transition flex justify-between items-center">' +
-          '<div class="pr-2">' +
-            '<span class="font-bold text-slate-800 text-xs block">' + it.item_name + '</span>' +
-            '<span class="text-xs font-bold text-blue-600 mt-0.5 block">$' + it.price + '</span>' +
-          '</div>' +
-          '<span class="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg shrink-0">+ 點餐</span>' +
-        '</div>';
-      });
-      container.innerHTML = html;
-    }
-
-    function updateModalCartCount() {
-      const count = cart.reduce((acc, c) => acc + c.qty, 0);
-      document.getElementById('modalCartCount').innerText = '清單目前已選 ' + count + ' 份餐點';
-    }
-
-    // 打開規格選擇 Modal (甜度/冰量/客製備註)
-    function openOptionModal(itemId) {
-      const item = allMenuItems.find(m => m.id === itemId);
-      if (!item) return;
-
-      currentPendingItem = item;
-      selectedSugar = '';
-      selectedIce = '';
-      document.getElementById('optionItemName').innerText = item.item_name;
-      document.getElementById('optionItemPrice').innerText = '$' + item.price;
-      document.getElementById('customNoteInput').value = '';
-
-      // 判斷是否為飲料店：顯示或隱藏糖量/冰量
-      const store = allStores.find(s => s.id === item.store_id);
-      const isDrink = store && store.category && (store.category.includes('飲料') || store.category.includes('茶'));
-
-      document.getElementById('sugarSection').style.display = isDrink ? 'block' : 'none';
-      document.getElementById('iceSection').style.display = isDrink ? 'block' : 'none';
-
-      // 重置按鈕高亮
-      document.querySelectorAll('.spec-btn').forEach(btn => {
-        btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
-        btn.classList.add('text-slate-700');
-      });
-
-      // 飲料預設建議
-      if (isDrink) {
-        selectSugar('微糖');
-        selectIce('微冰');
-      }
-
-      document.getElementById('itemOptionModal').classList.remove('hidden');
-    }
-
-    function selectSugar(val) {
-      selectedSugar = val;
-      updateSpecButtonGroup('sugarGroup', val);
-    }
-
-    function selectIce(val) {
-      selectedIce = val;
-      updateSpecButtonGroup('iceGroup', val);
-    }
-
-    function updateSpecButtonGroup(groupId, val) {
-      const group = document.getElementById(groupId);
-      if (!group) return;
-      group.querySelectorAll('.spec-btn').forEach(btn => {
-        if (btn.innerText === val) {
-          btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
-          btn.classList.remove('text-slate-700');
-        } else {
-          btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
-          btn.classList.add('text-slate-700');
-        }
-      });
-    }
-
-    function closeOptionModal() {
-      document.getElementById('itemOptionModal').classList.add('hidden');
-      currentPendingItem = null;
-    }
-
-    function confirmAddToCart() {
-      if (!currentPendingItem) return;
-
-      const store = allStores.find(s => s.id === currentPendingItem.store_id);
-      const isDrink = store && store.category && (store.category.includes('飲料') || store.category.includes('茶'));
-      const customNote = document.getElementById('customNoteInput').value.trim();
-
-      // 組合規格備註 (固定格式：微糖/微冰 或 微糖/微冰/加珍珠)
-      let finalNote = '';
-      if (isDrink) {
-        const specs = [];
-        if (selectedSugar) specs.push(selectedSugar);
-        if (selectedIce) specs.push(selectedIce);
-        if (customNote) specs.push(customNote);
-        finalNote = specs.join('/');
-      } else {
-        finalNote = customNote;
-      }
-
-      // 加入購物車 (同品項且相同備註者合併數量)
-      const exist = cart.find(c => c.itemId === currentPendingItem.id && c.note === finalNote);
-      if (exist) {
-        exist.qty += 1;
-      } else {
-        cart.push({
-          itemId: currentPendingItem.id,
-          itemName: currentPendingItem.item_name,
-          storeName: currentPendingItem.store_name,
-          price: currentPendingItem.price,
-          qty: 1,
-          note: finalNote
-        });
-      }
-
-      closeOptionModal();
-      updateModalCartCount();
-      renderCart();
-    }
-
-    function updateCartQty(index, delta) {
-      cart[index].qty += delta;
-      if (cart[index].qty <= 0) {
-        cart.splice(index, 1);
-      }
-      renderCart();
-      updateModalCartCount();
-    }
-
-    function renderCart() {
-      const container = document.getElementById('cartContainer');
-      const totalEl = document.getElementById('cartTotalPrice');
-
-      if (cart.length === 0) {
-        container.innerHTML = '<p class="text-xs text-slate-400 py-4 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">尚未加入任何餐點，請點擊上方店家按鈕挑選餐點</p>';
-        totalEl.innerText = '小計：$0';
-        return;
-      }
-
-      let sum = 0;
-      let html = '';
-      cart.forEach((c, idx) => {
-        const itemSubtotal = c.price * c.qty;
-        sum += itemSubtotal;
-
-        html += '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">' +
-          '<div class="flex-1">' +
-            '<span class="font-semibold text-blue-600">[' + c.storeName + ']</span> ' +
-            '<span class="font-bold text-slate-800">' + c.itemName + '</span> ' +
-            (c.note ? '<span class="text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[11px] ml-1">' + c.note + '</span>' : '') +
-            '<span class="text-slate-500 font-medium ml-1">($' + c.price + '/份)</span>' +
-          '</div>' +
-          '<div class="flex items-center gap-2">' +
-            '<div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">' +
-              '<button onclick="updateCartQty(' + idx + ', -1)" class="px-2 py-1 hover:bg-slate-100 font-bold">-</button>' +
-              '<span class="px-2 font-bold text-slate-700">' + c.qty + '</span>' +
-              '<button onclick="updateCartQty(' + idx + ', 1)" class="px-2 py-1 hover:bg-slate-100 font-bold">+</button>' +
-            '</div>' +
-            '<span class="font-bold text-slate-800 min-w-[50px] text-right">$' + itemSubtotal + '</span>' +
-            '<button onclick="removeCartItem(' + idx + ')" class="text-slate-400 hover:text-red-500 text-xs px-1">✕</button>' +
-          '</div>' +
-        '</div>';
-      });
-
-      container.innerHTML = html;
-      totalEl.innerText = '小計：$' + sum;
-    }
-
-    function removeCartItem(idx) {
-      cart.splice(idx, 1);
-      renderCart();
-      updateModalCartCount();
-    }
-
-    async function submitBatchOrder() {
-      const userName = document.getElementById('userSelect').value;
-      if (!userName) return alert('請先選擇您的名字！');
-      if (cart.length === 0) return alert('點餐清單是空的，請先挑選餐點！');
-
-      const btn = document.getElementById('submitBtn');
-      btn.disabled = true;
-      btn.innerText = '送出點餐中...';
-
-      try {
-        const res = await fetch('/api/order/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userName, items: cart })
-        });
-        const result = await res.json();
-        if (result.success) {
-          alert('🎉 ' + result.message);
-          cart = [];
-          renderCart();
-          initPage();
-        } else {
-          alert(result.message || '點餐失敗');
-        }
-      } catch (err) {
-        alert('網路異常，請稍後再試');
-      } finally {
-        btn.disabled = false;
-        btn.innerText = '確認送出全部點餐';
-      }
-    }
-
-    function renderOrders(orders) {
-      const container = document.getElementById('ordersContainer');
-      if (!orders || orders.length === 0) {
-        container.innerHTML = '<p class="text-slate-400 py-4 text-center">今日尚無人登記點餐</p>';
-        return;
-      }
-
-      let html = '<table class="w-full text-left border-collapse">' +
-        '<thead><tr class="border-b border-slate-200 text-slate-500 text-xs">' +
-          '<th class="py-2.5 px-3">姓名</th>' +
-          '<th class="py-2.5 px-3">店家 / 品項</th>' +
-          '<th class="py-2.5 px-3">備註</th>' +
-          '<th class="py-2.5 px-3 text-right">金額</th>' +
-        '</tr></thead><tbody class="divide-y divide-slate-100">';
-
-      orders.forEach(o => {
-        html += '<tr class="hover:bg-slate-50 transition">' +
-          '<td class="py-2.5 px-3 font-bold text-slate-800">' + o.user_name + '</td>' +
-          '<td class="py-2.5 px-3">' +
-            '<span class="text-xs text-blue-600 font-semibold">[' + (o.store_name || '未指定') + ']</span> ' +
-            '<span class="font-medium text-slate-700">' + o.item_name + '</span>' +
-          '</td>' +
-          '<td class="py-2.5 px-3 text-xs text-slate-500">' + (o.note || '-') + '</td>' +
-          '<td class="py-2.5 px-3 text-right font-bold text-slate-700">$' + o.price + '</td>' +
-        '</tr>';
-      });
-      html += '</tbody></table>';
-      container.innerHTML = html;
-    }
-
-    initPage();
-  </script>
-</body>
-</html>
+export default app;
