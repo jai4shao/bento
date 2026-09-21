@@ -15,8 +15,9 @@
 ## 💡 快速啟用指南 (僅需 1 分鐘)
 
 ### 事前準備
-1. **GitHub 帳號**（若無請先註冊，用於存放您的專案複本）。
-2. **Cloudflare 帳號**（免費方案即可完整運行）。
+### 事前準備（若已有帳號可直接略過）
+1. <a href="https://github.com/signup" target="_blank">註冊 GitHub 帳號</a>（用於存放您的系統專案複本）。
+2. <a href="https://dash.cloudflare.com/sign-up" target="_blank">註冊 Cloudflare 帳號</a>（免費方案即可完整運作）。
 
 ### 部署步驟
 1. 點擊上方的 **「Deploy to Cloudflare Workers」** 藍色按鈕。
