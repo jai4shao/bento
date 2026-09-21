@@ -1,3 +1,22 @@
+// 🔍 除錯用：直接看 Worker 看到的資料表清單
+app.get('/api/debug-db', async (c) => {
+  try {
+    const tables = await c.env.DB.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table'"
+    ).all();
+    return c.json({
+      success: true,
+      message: '成功連上 D1',
+      tables: tables.results
+    });
+  } catch (err: any) {
+    return c.json({
+      success: false,
+      message: '連線 D1 失敗: ' + (err?.message || err)
+    }, 500);
+  }
+});
+
 import { Hono } from 'hono';
 
 type Bindings = {
