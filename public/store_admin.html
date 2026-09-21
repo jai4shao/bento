@@ -1,1 +1,87 @@
 
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏬 店家與菜單管理</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 p-4 md:p-8">
+  <div class="max-w-4xl mx-auto space-y-6">
+
+    <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">🏬 店家與菜單管理</h1>
+        <p class="text-xs text-slate-500 mt-1">管理配合店家資訊與菜單供應狀態</p>
+      </div>
+      <div class="space-x-2">
+        <a href="/" class="text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition">返回前台</a>
+        <a href="/admin" class="text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition">收款對帳</a>
+      </div>
+    </header>
+
+    <!-- 店家列表區塊 -->
+    <div id="storeContainer" class="space-y-6">
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 text-center text-slate-400">
+        載入店家與菜單中...
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    async function loadStores() {
+      try {
+        const res = await fetch('/api/init-order-page');
+        const json = await res.json();
+        if (!json.success) throw new Error();
+
+        const { stores, menuItems } = json.data;
+        const container = document.getElementById('storeContainer');
+
+        if (!stores || stores.length === 0) {
+          container.innerHTML = '<div class="bg-white rounded-2xl p-8 text-center text-slate-400">資料庫目前無店家資料，請至 D1 匯入初始 SQL。</div>';
+          return;
+        }
+
+        container.innerHTML = stores.map(s => {
+          const items = menuItems.filter(m => m.store_id === s.id);
+          return `
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
+              <div class="flex justify-between items-start border-b pb-4">
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <h3 class="text-xl font-bold text-slate-800">${s.name}</h3>
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded ${s.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}">
+                      ${s.is_active ? '供餐中' : '休息中'}
+                    </span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-1">電話：${s.phone || '未提供'} ｜ 分類：${s.category || '一般'}</p>
+                </div>
+              </div>
+
+              <!-- 菜單列表 -->
+              <div>
+                <h4 class="text-sm font-semibold text-slate-700 mb-2">供應品項清單 (${items.length})</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  ${items.map(it => `
+                    <div class="flex justify-between items-center bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+                      <span class="font-medium text-slate-700">${it.item_name}</span>                       <span class="font-bold text-blue-600">$${it.price}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      } catch (err) {
+        document.getElementById('storeContainer').innerHTML = '<div class="bg-white rounded-2xl p-8 text-center text-red-500">無法連線取得店家資訊</div>';
+      }
+    }
+
+    loadStores();
+  </script>
+</body>
+</html>
