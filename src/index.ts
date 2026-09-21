@@ -88,7 +88,129 @@ app.get('/api/setup-database', async (c) => {
     return c.json({ success: false, error: err?.message || err }, 500);
   }
 });
+// 1. 取得與切換結單狀態 API
+app.get('/api/system/status', async (c) => {
+  try {
+    const row: any = await c.env.DB.prepare(
+      "SELECT setting_value FROM system_settings WHERE setting_key = 'is_order_locked'"
+    ).first();
+    const isLocked = row ? row.setting_value === '1' : false;
+    return c.json({ success: true, isLocked });
+  } catch (err: any) {
+    return c.json({ success: true, isLocked: false });
+  }
+});
 
+app.post('/api/admin/toggle-lock', async (c) => {
+  try {
+    const { isLocked } = await c.req.json();
+    const val = isLocked ? '1' : '0';
+    await c.env.DB.prepare(`
+      INSERT INTO system_settings (setting_key, setting_value)
+      VALUES ('is_order_locked', ?)
+      ON CONFLICT(setting_key) DO UPDATE SET setting_value = ?
+    `).bind(val, val).run();
+
+    return c.json({ 
+      success: true, 
+      isLocked: isLocked, 
+      message: isLocked ? '已結單！前台已停止收單與修改。' : '已重新開放前台點餐！' 
+    });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '操作失敗' }, 500);
+  }
+});
+
+// 2. 升級點餐送出 API (加入結單防護)
+app.post('/api/order/submit', async (c) => {
+  try {
+    // 檢查是否已結單
+    const lockRow: any = await c.env.DB.prepare(
+      "SELECT setting_value FROM system_settings WHERE setting_key = 'is_order_locked'"
+    ).first();
+    if (lockRow && lockRow.setting_value === '1') {
+      return c.json({ success: false, message: '今日已截止訂餐，主揪已向店家下單！' }, 403);
+    }
+
+    const { userName, items } = await c.req.json();
+    if (!userName || !items || !Array.isArray(items) || items.length === 0) {
+      return c.json({ success: false, message: '請選擇姓名與至少一項餐點' }, 400);
+    }
+
+    const db = c.env.DB;
+    const statements: any[] = [];
+    for (const item of items) {
+      const qty = Math.max(1, Number(item.qty || 1));
+      for (let i = 0; i < qty; i++) {
+        statements.push(
+          db.prepare(`
+            INSERT INTO orders (user_name, item_id, note, price, paid_amount, is_paid)
+            VALUES (?, ?, ?, ?, 0, 0)
+          `).bind(userName, item.itemId, item.note || '', Number(item.price || 0))
+        );
+      }
+    }
+
+    await db.batch(statements);
+    return c.json({ success: true, message: `成功送出 ${statements.length} 份餐點！` });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '點餐送出失敗' }, 500);
+  }
+});
+
+// 3. 升級前台自我取消 API (加入結單防護)
+app.post('/api/order/self-delete', async (c) => {
+  try {
+    const lockRow: any = await c.env.DB.prepare(
+      "SELECT setting_value FROM system_settings WHERE setting_key = 'is_order_locked'"
+    ).first();
+    if (lockRow && lockRow.setting_value === '1') {
+      return c.json({ success: false, message: '已結單下訂，無法取消！請直接聯絡主揪。' }, 403);
+    }
+
+    const { orderId, userName } = await c.req.json();
+    if (!orderId || !userName) return c.json({ success: false, message: '參數不完整' }, 400);
+
+    const result = await c.env.DB.prepare(
+      "DELETE FROM orders WHERE id = ? AND user_name = ?"
+    ).bind(orderId, userName).run();
+
+    if (result.meta.changes === 0) {
+      return c.json({ success: false, message: '刪除失敗：無權限或找不到該筆點餐' }, 403);
+    }
+    return c.json({ success: true, message: '已取消該筆餐點！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
+  }
+});
+
+// 4. 升級前台自我修改 API (加入結單防護)
+app.post('/api/order/self-update', async (c) => {
+  try {
+    const lockRow: any = await c.env.DB.prepare(
+      "SELECT setting_value FROM system_settings WHERE setting_key = 'is_order_locked'"
+    ).first();
+    if (lockRow && lockRow.setting_value === '1') {
+      return c.json({ success: false, message: '已結單下訂，無法修改品項！' }, 403);
+    }
+
+    const { orderId, userName, itemId, note, price } = await c.req.json();
+    if (!orderId || !userName || !itemId) return c.json({ success: false, message: '參數不完整' }, 400);
+
+    const result = await c.env.DB.prepare(`
+      UPDATE orders 
+      SET item_id = ?, note = ?, price = ?
+      WHERE id = ? AND user_name = ?
+    `).bind(itemId, note || '', price, orderId, userName).run();
+
+    if (result.meta.changes === 0) {
+      return c.json({ success: false, message: '修改失敗：無權限或找不到該筆點餐' }, 403);
+    }
+    return c.json({ success: true, message: '餐點修改成功！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '修改失敗' }, 500);
+  }
+});
 // ==========================================
 // 1. 初始化前台資料 API
 // ==========================================
