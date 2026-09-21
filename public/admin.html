@@ -9,11 +9,10 @@
 <body class="bg-slate-100 min-h-screen text-slate-800 p-4 md:p-8">
   <div class="max-w-6xl mx-auto space-y-6">
 
-    <!-- 頂部卡片 -->
     <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">📋 便當訂單核銷與統計</h1>
-        <p class="text-xs text-slate-500 mt-1">即時統計叫餐數量、應付總額與實收找零核銷</p>
+        <p class="text-xs text-slate-500 mt-1">即時統計叫餐數量、個人總額與找零結清</p>
       </div>
       <div class="flex items-center space-x-2">
         <a href="/" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-200 transition">回點餐前台</a>
@@ -22,7 +21,7 @@
       </div>
     </header>
 
-    <!-- 1. 叫餐統計區塊 -->
+    <!-- 1. 叫餐統計 -->
     <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-lg font-bold text-slate-800">📊 店家叫餐加總統計</h2>
@@ -33,50 +32,45 @@
       </div>
     </section>
 
-    <!-- 2. 明細核銷區塊 (包含實收、找零試算) -->
+    <!-- 2. 個人對帳核銷 (依人合併) -->
     <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
       <div class="flex justify-between items-center mb-4">
-        <h2 class="text-lg font-bold text-slate-800">🧾 個人明細與對帳找零</h2>
-        <span class="text-xs text-slate-500 font-medium">💡 輸入實收金額後自動計算找零並即時儲存</span>
+        <h2 class="text-lg font-bold text-slate-800">🧾 個人對帳找零 (依人員加總)</h2>
+        <span class="text-xs text-slate-500 font-medium">💡 輸入一次實收金額，自動試算找零並全額結清</span>
       </div>
-      <div id="ordersContainer" class="overflow-x-auto text-sm">
-        <p class="text-slate-400 py-4 text-center">載入明細中...</p>
+      <div id="userOrdersContainer" class="overflow-x-auto text-sm">
+        <p class="text-slate-400 py-4 text-center">載入對帳名單中...</p>
       </div>
     </section>
 
   </div>
 
-  <!-- 3. 修改訂單彈窗 Modal -->
+  <!-- 修改訂單彈窗 -->
   <div id="editModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
       <div class="flex justify-between items-center border-b pb-3">
-        <h3 class="text-lg font-bold text-slate-800">修改訂單內容</h3>
+        <h3 class="text-lg font-bold text-slate-800">修改單筆餐點品項</h3>
         <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
       </div>
-
       <div class="space-y-3 text-sm">
         <div>
           <label class="block font-semibold text-slate-700 mb-1">點餐人</label>
           <input type="text" id="modalUserName" disabled class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-slate-500">
         </div>
-
         <div>
           <label class="block font-semibold text-slate-700 mb-1">更換餐點品項</label>
           <select id="modalMenuSelect" onchange="onModalMenuChange()" class="w-full border border-slate-300 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-blue-500">
           </select>
         </div>
-
         <div>
           <label class="block font-semibold text-slate-700 mb-1">金額 ($)</label>
           <input type="number" id="modalPrice" class="w-full border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
         </div>
-
         <div>
           <label class="block font-semibold text-slate-700 mb-1">備註需求</label>
           <input type="text" id="modalNote" placeholder="飯少、不辣等" class="w-full border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
         </div>
       </div>
-
       <div class="flex justify-end space-x-2 pt-3 border-t">
         <button onclick="closeEditModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
         <button onclick="saveOrderEdit()" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">儲存更新</button>
@@ -85,7 +79,7 @@
   </div>
 
   <script>
-    let currentOrders = [];
+    let rawOrders = [];
     let availableMenuItems = [];
     let activeEditingOrderId = null;
 
@@ -96,26 +90,24 @@
           fetch('/api/admin/summary'),
           fetch('/api/admin/orders')
         ]);
-
         const initJson = await initRes.json();
         const sumJson = await sumRes.json();
         const ordJson = await ordRes.json();
 
         availableMenuItems = (initJson.data && initJson.data.menuItems) ? initJson.data.menuItems : [];
-        currentOrders = (ordJson.data) ? ordJson.data : [];
+        rawOrders = ordJson.data || [];
 
         renderSummary(sumJson.data || []);
-        renderOrdersList(currentOrders);
+        renderUserAggregatedOrders(rawOrders);
       } catch (e) {
         console.error(e);
-        document.getElementById('summaryContainer').innerHTML = '<p class="text-red-500 py-4 text-center">載入資料失敗，請確認網路連線與資料庫</p>';
+        document.getElementById('summaryContainer').innerHTML = '<p class="text-red-500 py-4 text-center">載入資料失敗</p>';
       }
     }
 
     function renderSummary(summary) {
       const container = document.getElementById('summaryContainer');
       let total = 0;
-
       if (!summary || summary.length === 0) {
         container.innerHTML = '<p class="text-slate-400 py-4 text-center">目前無訂單統計資料</p>';
         document.getElementById('totalSummaryAmount').innerText = '總額：$0';
@@ -126,92 +118,104 @@
       document.getElementById('totalSummaryAmount').innerText = '總額：$' + total;
 
       let html = '<table class="w-full text-left border-collapse">' +
-        '<thead>' +
-          '<tr class="border-b border-slate-200 text-slate-500 text-xs">' +
-            '<th class="py-2.5 px-3">店家</th>' +
-            '<th class="py-2.5 px-3">品項名稱</th>' +
-            '<th class="py-2.5 px-3">備註</th>' +
-            '<th class="py-2.5 px-3 text-center">數量</th>' +
-            '<th class="py-2.5 px-3 text-right">小計</th>' +
-          '</tr>' +
-        '</thead>' +
-        '<tbody class="divide-y divide-slate-100">';
+        '<thead><tr class="border-b border-slate-200 text-slate-500 text-xs">' +
+          '<th class="py-2.5 px-3">店家</th>' +
+          '<th class="py-2.5 px-3">品項名稱</th>' +
+          '<th class="py-2.5 px-3">備註</th>' +
+          '<th class="py-2.5 px-3 text-center">數量</th>' +
+          '<th class="py-2.5 px-3 text-right">小計</th>' +
+        '</tr></thead><tbody class="divide-y divide-slate-100">';
 
       summary.forEach(s => {
-        const storeName = s.store_name ? s.store_name : '未指定';
-        const noteText = s.note ? s.note : '-';
         html += '<tr class="hover:bg-slate-50 transition">' +
-          '<td class="py-2.5 px-3 font-semibold text-blue-600">[' + storeName + ']</td>' +
+          '<td class="py-2.5 px-3 font-semibold text-blue-600">[' + (s.store_name || '未指定') + ']</td>' +
           '<td class="py-2.5 px-3 font-medium text-slate-800">' + s.item_name + '</td>' +
-          '<td class="py-2.5 px-3 text-slate-500 text-xs">' + noteText + '</td>' +
+          '<td class="py-2.5 px-3 text-slate-500 text-xs">' + (s.note || '-') + '</td>' +
           '<td class="py-2.5 px-3 text-center font-bold text-slate-800">' + s.qty + '</td>' +
           '<td class="py-2.5 px-3 text-right font-bold text-slate-700">$' + s.subtotal + '</td>' +
         '</tr>';
       });
-
       html += '</tbody></table>';
       container.innerHTML = html;
     }
 
-    function renderOrdersList(orders) {
-      const container = document.getElementById('ordersContainer');
+    // 將所有訂單按個人 (user_name) 進行分組加總
+    function renderUserAggregatedOrders(orders) {
+      const container = document.getElementById('userOrdersContainer');
       if (!orders || orders.length === 0) {
-        container.innerHTML = '<p class="text-slate-400 py-4 text-center">目前無個人點餐明細</p>';
+        container.innerHTML = '<p class="text-slate-400 py-4 text-center">目前尚無點餐紀錄</p>';
         return;
       }
 
-      let html = '<table class="w-full text-left border-collapse">' +
-        '<thead>' +
-          '<tr class="border-b border-slate-200 text-slate-500 text-xs">' +
-            '<th class="py-2.5 px-3">姓名</th>' +
-            '<th class="py-2.5 px-3">店家 / 品項</th>' +
-            '<th class="py-2.5 px-3">備註</th>' +
-            '<th class="py-2.5 px-3 text-center">應付</th>' +
-            '<th class="py-2.5 px-3 text-center w-28">實收金額</th>' +
-            '<th class="py-2.5 px-3 text-center w-28">找零 / 狀態</th>' +
-            '<th class="py-2.5 px-3 text-center">結清</th>' +
-            '<th class="py-2.5 px-3 text-right">操作</th>' +
-          '</tr>' +
-        '</thead>' +
-        '<tbody class="divide-y divide-slate-100">';
-
+      const usersMap = {};
       orders.forEach(o => {
-        const storeName = o.store_name ? o.store_name : '未指定';
-        const noteText = o.note ? o.note : '-';
-        const isChecked = o.is_paid ? 'checked' : '';
-        const paidAmount = Number(o.paid_amount || 0);
-        const change = paidAmount > 0 ? (paidAmount - o.price) : 0;
+        if (!usersMap[o.user_name]) {
+          usersMap[o.user_name] = {
+            userName: o.user_name,
+            totalPrice: 0,
+            paidAmount: Number(o.paid_amount || 0),
+            isAllPaid: true,
+            items: []
+          };
+        }
+        usersMap[o.user_name].totalPrice += Number(o.price || 0);
+        if (!o.is_paid) usersMap[o.user_name].isAllPaid = false;
+        usersMap[o.user_name].items.push(o);
+      });
 
+      const userList = Object.values(usersMap);
+
+      let html = '<table class="w-full text-left border-collapse">' +
+        '<thead><tr class="border-b border-slate-200 text-slate-500 text-xs">' +
+          '<th class="py-2.5 px-3">姓名</th>' +
+          '<th class="py-2.5 px-3">點購內容品項 (明細/操作)</th>' +
+          '<th class="py-2.5 px-3 text-center">總應付</th>' +
+          '<th class="py-2.5 px-3 text-center w-28">實收金額</th>' +
+          '<th class="py-2.5 px-3 text-center w-28">找零計算</th>' +
+          '<th class="py-2.5 px-3 text-center">結清</th>' +
+        '</tr></thead><tbody class="divide-y divide-slate-100">';
+
+      userList.forEach(u => {
+        const change = u.paidAmount > 0 ? (u.paidAmount - u.totalPrice) : 0;
         let changeBadge = '<span class="text-xs text-slate-400">未收</span>';
-        if (paidAmount > 0) {
+        if (u.paidAmount > 0) {
           if (change >= 0) {
             changeBadge = '<span class="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">應找 $' + change + '</span>';
           } else {
-            changeBadge = '<span class="text-xs font-bold text-red-500 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">少給 $' + Math.abs(change) + '</span>';
+            changeBadge = '<span class="text-xs font-bold text-red-500 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">少收 $' + Math.abs(change) + '</span>';
           }
         }
 
+        // 渲染該員所點的所有餐點品項小卡，附帶獨立修改與刪除按鈕
+        let itemsHtml = '<div class="space-y-1.5 py-1">';
+        u.items.forEach(it => {
+          itemsHtml += '<div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs">' +
+            '<div>' +
+              '<span class="text-blue-600 font-semibold">[' + (it.store_name || '未指定') + ']</span> ' +
+              '<span class="text-slate-700 font-medium">' + it.item_name + '</span> ' +
+              (it.note ? '<span class="text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 ml-1">' + it.note + '</span>' : '') +
+              '<span class="text-slate-500 font-bold ml-1.5">$' + it.price + '</span>' +
+            '</div>' +
+            '<div class="space-x-1 pl-2">' +
+              '<button onclick="openEditModal(' + it.id + ')" class="text-blue-600 hover:text-blue-800 font-semibold">改</button>' +
+              '<button onclick="deleteOrder(' + it.id + ')" class="text-red-500 hover:text-red-700 font-semibold">刪</button>' +
+            '</div>' +
+          '</div>';
+        });
+        itemsHtml += '</div>';
+
         html += '<tr class="hover:bg-slate-50 transition">' +
-          '<td class="py-2.5 px-3 font-bold text-slate-800">' + o.user_name + '</td>' +
-          '<td class="py-2.5 px-3">' +
-            '<span class="text-xs text-blue-600 font-semibold">[' + storeName + ']</span>' +
-            '<span class="font-medium text-slate-700 ml-1">' + o.item_name + '</span>' +
-          '</td>' +
-          '<td class="py-2.5 px-3 text-xs text-slate-500">' + noteText + '</td>' +
-          '<td class="py-2.5 px-3 text-center font-bold text-slate-800">$' + o.price + '</td>' +
-          '<td class="py-2.5 px-3 text-center">' +
-            '<input type="number" value="' + (paidAmount > 0 ? paidAmount : '') + '" placeholder="' + o.price + '" ' +
-              'onblur="onPaidAmountChange(' + o.id + ', ' + o.price + ', this.value)" ' +
+          '<td class="py-2.5 px-3 font-bold text-slate-800 align-middle">' + u.userName + '</td>' +
+          '<td class="py-2.5 px-3 align-middle">' + itemsHtml + '</td>' +
+          '<td class="py-2.5 px-3 text-center font-bold text-slate-800 align-middle">$' + u.totalPrice + '</td>' +
+          '<td class="py-2.5 px-3 text-center align-middle">' +
+            '<input type="number" value="' + (u.paidAmount > 0 ? u.paidAmount : '') + '" placeholder="' + u.totalPrice + '" ' +
+              'onblur="onUserPaidAmountChange(\'' + u.userName + '\', ' + u.totalPrice + ', this.value)" ' +
               'class="w-20 text-center border border-slate-300 rounded-lg py-1 px-1 text-sm font-semibold focus:ring-2 focus:ring-blue-500 outline-none">' +
           '</td>' +
-          '<td class="py-2.5 px-3 text-center" id="change-tag-' + o.id + '">' + changeBadge + '</td>' +
-          '<td class="py-2.5 px-3 text-center">' +
-            '<input type="checkbox" onchange="togglePaidCheck(' + o.id + ', ' + o.price + ', this.checked)" ' + isChecked + ' ' +
-              'class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer">' +
-          '</td>' +
-          '<td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">' +
-            '<button onclick="openEditModal(' + o.id + ')" class="inline-flex items-center text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1.5 rounded-lg transition">修改</button>' +
-            '<button onclick="deleteOrder(' + o.id + ')" class="inline-flex items-center text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 rounded-lg transition">刪除</button>' +
+          '<td class="py-2.5 px-3 text-center align-middle">' + changeBadge + '</td>' +
+          '<td class="py-2.5 px-3 text-center align-middle">' +
+            '<input type="checkbox" onchange="toggleUserPaidCheck(\'' + u.userName + '\', ' + u.totalPrice + ', this.checked)" ' + (u.isAllPaid ? 'checked' : '') + ' class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer">' +
           '</td>' +
         '</tr>';
       });
@@ -220,31 +224,26 @@
       container.innerHTML = html;
     }
 
-    // 實收金額變更 (失焦自動儲存與動態算找零)
-    async function onPaidAmountChange(orderId, price, val) {
+    // 依個人更新實收金額並自動計算結清狀態
+    async function onUserPaidAmountChange(userName, totalPrice, val) {
       const paid = Number(val || 0);
-      const isPaid = paid >= price ? 1 : 0;
-
-      await fetch('/api/admin/order/paid', {
+      const isPaid = paid >= totalPrice ? 1 : 0;
+      await fetch('/api/admin/user/paid', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId,
-          paidAmount: paid,
-          isPaid: isPaid
-        })
+        body: JSON.stringify({ userName, paidAmount: paid, isPaid })
       });
       loadAdminData();
     }
 
-    // 勾選框切換 (勾選代表直接全額付清)
-    async function togglePaidCheck(orderId, price, isChecked) {
-      await fetch('/api/admin/order/paid', {
+    // 勾選個人全額結清
+    async function toggleUserPaidCheck(userName, totalPrice, isChecked) {
+      await fetch('/api/admin/user/paid', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orderId,
-          paidAmount: isChecked ? price : 0,
+          userName,
+          paidAmount: isChecked ? totalPrice : 0,
           isPaid: isChecked ? 1 : 0
         })
       });
@@ -252,28 +251,22 @@
     }
 
     function openEditModal(orderId) {
-      const order = currentOrders.find(o => o.id === orderId);
+      const order = rawOrders.find(o => o.id === orderId);
       if (!order) return;
-
       activeEditingOrderId = orderId;
       document.getElementById('modalUserName').value = order.user_name;
       document.getElementById('modalPrice').value = order.price;
-      document.getElementById('modalNote').value = order.note ? order.note : '';
+      document.getElementById('modalNote').value = order.note || '';
 
       const select = document.getElementById('modalMenuSelect');
-      if (!availableMenuItems || availableMenuItems.length === 0) {
-        select.innerHTML = '<option value="' + order.item_id + '">目前品項 (無其他品項可選)</option>';
-      } else {
-        let optHtml = '';
-        availableMenuItems.forEach(m => {
-          const isSel = (m.id === order.item_id) ? 'selected' : '';
-          optHtml += '<option value="' + m.id + '" data-price="' + m.price + '" ' + isSel + '>' +
-            '[' + m.store_name + '] ' + m.item_name + ' - $' + m.price +
-          '</option>';
-        });
-        select.innerHTML = optHtml;
-      }
-
+      let optHtml = '';
+      availableMenuItems.forEach(m => {
+        const isSel = (m.id === order.item_id) ? 'selected' : '';
+        optHtml += '<option value="' + m.id + '" data-price="' + m.price + '" ' + isSel + '>' +
+          '[' + m.store_name + '] ' + m.item_name + ' - $' + m.price +
+        '</option>';
+      });
+      select.innerHTML = optHtml;
       document.getElementById('editModal').classList.remove('hidden');
     }
 
@@ -311,7 +304,7 @@
     }
 
     async function deleteOrder(orderId) {
-      if (!confirm('確定要刪除這筆點餐紀錄嗎？')) return;
+      if (!confirm('確定要刪除這筆餐點紀錄嗎？')) return;
       const res = await fetch('/api/admin/order/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
