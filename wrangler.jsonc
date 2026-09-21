@@ -1,8 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "bento-order-system",
+  "name": "bento-system",
   "main": "src/index.ts",
-  "compatibility_date": "2026-09-01",
+  "compatibility_date": "2024-09-23",
+  "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS"
@@ -10,8 +11,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "bento_db",
-      "database_id": "7864f537-ade1-4f86-a804-2823aa6e36e3"
+      "database_name": "bento_db"
+      // ⚠️ 不要寫 database_id！讓 Cloudflare 一鍵部署時自動配發並綁定
     }
   ]
 }
