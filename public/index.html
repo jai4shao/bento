@@ -1,1 +1,195 @@
 
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🍱 線上便當訂餐系統</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 p-4 md:p-8">
+  <div class="max-w-2xl mx-auto space-y-6">
+
+    <!-- 頂部卡片 -->
+    <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800 tracking-tight">🍱 訂便當系統</h1>
+        <p class="text-xs text-slate-500 mt-1" id="orderStatus">載入系統狀態中...</p>
+      </div>
+      <div class="space-x-2">
+        <a href="/store_admin" class="text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition">店家菜單</a>
+        <a href="/admin" class="text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition">管理後台</a>
+      </div>
+    </header>
+
+    <!-- 點餐表單 -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-5">
+      <h2 class="text-lg font-bold text-slate-800 border-b pb-3">點餐登記</h2>
+
+      <!-- 姓名選擇 -->
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">點餐人員</label>
+        <select id="userSelect" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition">
+          <option value="">-- 請選擇您的名字 --</option>
+        </select>
+      </div>
+
+      <!-- 店家分類與品項選擇 -->
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">餐點選擇</label>
+        <select id="menuSelect" onchange="onItemChange()" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition">
+          <option value="">-- 請選擇餐點品項 --</option>
+        </select>
+        <div class="flex justify-between items-center mt-2 px-1">
+          <span class="text-xs text-slate-500" id="storeInfo"></span>
+          <span class="text-sm font-bold text-blue-600" id="priceTag">$0</span>
+        </div>
+      </div>
+
+      <!-- 備註 -->
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">客製備註（如：飯少、不辣、加蛋）</label>
+        <input type="text" id="orderNote" placeholder="若無特殊需求可留空" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-sm">
+      </div>
+
+      <!-- 提交按鈕 -->
+      <button id="submitBtn" onclick="submitOrder()" class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-semibold py-3 rounded-xl shadow-md transition duration-150">
+        確認送出點餐
+      </button>
+    </section>
+
+    <!-- 已登記訂單清單 -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold text-slate-800">今日登記清單</h2>
+        <span class="text-xs bg-slate-100 text-slate-600 font-semibold px-2.5 py-1 rounded-full" id="orderCount">共 0 份</span>
+      </div>
+      <div id="orderList" class="divide-y divide-slate-100 text-sm">
+        <p class="text-slate-400 py-4 text-center">載入中...</p>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    let globalMenuItems = [];
+
+    async function initPage() {
+      try {
+        const res = await fetch('/api/init-order-page');
+        const json = await res.json();
+        if (!json.success) throw new Error('API 回傳失敗');
+
+        const { settings, stores, menuItems, users, orders } = json.data;
+        globalMenuItems = menuItems;
+
+        // 系統狀態
+        document.getElementById('orderStatus').innerText = '開放點餐中';
+
+        // 渲染人員下拉
+        const userSelect = document.getElementById('userSelect');
+        userSelect.innerHTML = '<option value="">-- 請選擇您的名字 --</option>' +
+          users.map(u => `<option value="${u.name}">${u.name}</option>`).join('');
+
+        // 渲染品項下拉 (依店家分類分組)
+        const menuSelect = document.getElementById('menuSelect');
+        let menuHtml = '<option value="">-- 請選擇餐點品項 --</option>';
+        stores.forEach(store => {
+          const items = menuItems.filter(m => m.store_id === store.id);
+          if (items.length > 0) {
+            menuHtml += `<optgroup label="🏬 ${store.name} (${store.category || '一般'})">`;
+            items.forEach(item => {
+              menuHtml += `<option value="${item.id}" data-price="${item.price}" data-store="${store.name}">
+                ${item.item_name} - $${item.price}
+              </option>`;
+            });
+            menuHtml += `</optgroup>`;
+          }
+        });
+        menuSelect.innerHTML = menuHtml;
+
+        // 渲染訂單清單
+        renderOrders(orders);
+      } catch (err) {
+        console.error(err);
+        document.getElementById('orderList').innerHTML = '<p class="text-red-500 py-4 text-center">資料庫連線中或尚未建立資料表</p>';
+      }
+    }
+
+    function onItemChange() {
+      const select = document.getElementById('menuSelect');
+      const opt = select.options[select.selectedIndex];
+      if (opt && opt.value) {
+        document.getElementById('priceTag').innerText = `$${opt.dataset.price}`;
+        document.getElementById('storeInfo').innerText = `供應店家：${opt.dataset.store}`;
+      } else {
+        document.getElementById('priceTag').innerText = '$0';
+        document.getElementById('storeInfo').innerText = '';
+      }
+    }
+
+    function renderOrders(orders) {
+      const container = document.getElementById('orderList');
+      document.getElementById('orderCount').innerText = `共 ${orders.length} 份`;
+
+      if (!orders || orders.length === 0) {
+        container.innerHTML = '<p class="text-slate-400 py-6 text-center">今日尚未有人登記點餐</p>';
+        return;
+      }
+
+      container.innerHTML = orders.map(o => `
+        <div class="py-3 flex justify-between items-center">
+          <div>
+            <div class="font-bold text-slate-800">${o.user_name}</div>
+            <div class="text-xs text-slate-500 mt-0.5">
+              <span class="text-blue-600 font-medium">[${o.store_name}]</span> ${o.item_name}
+              ${o.note ? `<span class="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 text-xs ml-1">備註: ${o.note}</span>` : ''}
+            </div>
+          </div>
+          <div class="font-bold text-slate-700">$${o.price}</div>
+        </div>
+      `).join('');
+    }
+
+    async function submitOrder() {
+      const userName = document.getElementById('userSelect').value;
+      const menuSelect = document.getElementById('menuSelect');
+      const itemId = menuSelect.value;
+      const note = document.getElementById('orderNote').value.trim();
+      const opt = menuSelect.options[menuSelect.selectedIndex];
+      const price = opt ? Number(opt.dataset.price || 0) : 0;
+
+      if (!userName) return alert('請選擇點餐人員！');
+      if (!itemId) return alert('請選擇要吃的餐點！');
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.innerText = '送出中...';
+
+      try {
+        const res = await fetch('/api/order/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userName, itemId, note, price })
+        });
+        const result = await res.json();
+        if (result.success) {
+          alert('🎉 點餐登記成功！');
+          document.getElementById('orderNote').value = '';
+          initPage();
+        } else {
+          alert('點餐失敗：' + (result.message || '未知錯誤'));
+        }
+      } catch (e) {
+        alert('網路請求異常，請稍後重試');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '確認送出點餐';
+      }
+    }
+
+    initPage();
+  </script>
+</body>
+</html>
