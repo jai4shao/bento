@@ -12,7 +12,7 @@
     <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex justify-between items-center">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">🏬 店家與菜單管理</h1>
-        <p class="text-xs text-slate-500 mt-1">管理店家資訊、菜單品項與 AI 批次快速匯入</p>
+        <p class="text-xs text-slate-500 mt-1">編輯店家資訊、個別微調價格品項與 AI 批次匯入</p>
       </div>
       <div class="space-x-2">
         <a href="/" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-200 transition">返回前台</a>
@@ -27,7 +27,7 @@
           <h2 class="text-lg font-bold text-slate-800 flex items-center gap-1.5">
             <span>🤖</span> AI 菜單快速匯入助手
           </h2>
-          <p class="text-xs text-slate-500 mt-0.5">複製 Prompt 傳給 ChatGPT / Gemini 讀圖或文字，再將產出的 SQL 貼入執行</p>
+          <p class="text-xs text-slate-500 mt-0.5">若店家全面漲價或菜單大改，建議直接刪除店家，由 AI 重新讀圖匯入</p>
         </div>
         <button onclick="copyAiPrompt()" class="inline-flex items-center text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3.5 py-2 rounded-xl transition">
           📋 複製 AI 提示詞 (Prompt)
@@ -56,23 +56,52 @@
       </button>
     </section>
 
-    <!-- 🔍 即時搜尋店家與菜單 -->
+    <!-- 🔍 關鍵字搜尋 -->
     <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex items-center gap-3">
       <span class="text-slate-400 pl-1">🔍</span>
       <input type="text" id="storeSearchInput" oninput="onSearchChange()" placeholder="搜尋店家名稱、分類、電話或菜單品項關鍵字..." class="w-full text-sm outline-none text-slate-700 bg-transparent">
       <span id="searchResultCount" class="text-xs text-slate-400 whitespace-nowrap"></span>
     </div>
 
-    <!-- 店家清單容器 -->
+    <!-- 店家清單 -->
     <div id="storeContainer" class="space-y-6">
       <div class="bg-white rounded-2xl p-8 text-center text-slate-400">載入店家與菜單中...</div>
     </div>
 
   </div>
 
+  <!-- ✏️ 店家資訊修改彈窗 Modal -->
+  <div id="editStoreModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="text-lg font-bold text-slate-800">修改店家資訊</h3>
+        <button onclick="closeEditStoreModal()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+      </div>
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">店家名稱</label>
+          <input type="text" id="modalStoreName" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">聯絡電話</label>
+          <input type="text" id="modalStorePhone" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">店家分類 (如：便當、飲料、麵食)</label>
+          <input type="text" id="modalStoreCategory" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+      <div class="flex justify-end space-x-2 pt-3 border-t">
+        <button onclick="closeEditStoreModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
+        <button onclick="saveStoreEdit()" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">儲存修改</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let globalStores = [];
     let globalMenuItems = [];
+    let activeEditingStoreId = null;
 
     const AI_PROMPT_TEMPLATE = `請閱讀以下菜單圖片或文字清單，並直接轉換成符合 Cloudflare D1 (SQLite) 的 SQL 插入語句。
 【規則需求】：
@@ -148,7 +177,6 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
         return;
       }
 
-      // 篩選：店家名、電話、分類符合，或該店底下有品項符合關鍵字
       const filtered = globalStores.filter(s => {
         const matchStore = (s.name && s.name.toLowerCase().includes(keyword)) ||
                            (s.phone && s.phone.toLowerCase().includes(keyword)) ||
@@ -187,23 +215,33 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
               '</div>' +
               '<p class="text-xs text-slate-500 mt-1">電話：' + (s.phone || '未提供') + ' ｜ 分類：' + (s.category || '一般') + '</p>' +
             '</div>' +
-            '<div class="flex items-center space-x-2 flex-wrap gap-y-2">' +
+            '<div class="flex items-center space-x-1.5 flex-wrap gap-y-2">' +
               toggleBtn +
-              '<button onclick="addMenuItemPrompt(' + s.id + ', \'' + s.name + '\')" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition">➕ 新增餐點</button>' +
+              '<button onclick="openEditStoreModal(' + s.id + ')" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 transition">✏️ 編輯店家</button>' +
+              '<button onclick="addMenuItemPrompt(' + s.id + ', \'' + s.name + '\')" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition">➕ 新增餐點</button>' +
               '<button onclick="deleteStore(' + s.id + ', \'' + s.name + '\')" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition">🗑️ 刪除店家</button>' +
             '</div>' +
           '</div>' +
           '<div>' +
-            '<h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">菜單品項 (' + items.length + ')</h4>';
+            '<div class="flex justify-between items-center mb-2">' +
+              '<h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">菜單品項 (' + items.length + ')</h4>' +
+              '<span class="text-[11px] text-slate-400">💡 點擊品項旁的 ✏️ 即可微調價格或名稱</span>' +
+            '</div>';
 
         if (items.length === 0) {
           html += '<p class="text-xs text-slate-400 py-2">尚未新增餐點品項。</p>';
         } else {
           html += '<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-sm">';
           items.forEach(it => {
-            html += '<div class="flex justify-between items-center bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">' +
-              '<span class="font-medium text-slate-700">' + it.item_name + '</span>' +
-              '<span class="font-bold text-blue-600">$' + it.price + '</span>' +
+            html += '<div class="flex justify-between items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">' +
+              '<div class="truncate mr-2">' +
+                '<span class="font-medium text-slate-700 text-xs">' + it.item_name + '</span>' +
+              '</div>' +
+              '<div class="flex items-center space-x-1.5 shrink-0">' +
+                '<span class="font-bold text-blue-600 text-xs">$' + it.price + '</span>' +
+                '<button onclick="editMenuItemPrompt(' + it.id + ', \'' + it.item_name + '\', ' + it.price + ')" class="text-slate-400 hover:text-blue-600 text-xs p-1" title="修改價格/名稱">✏️</button>' +
+                '<button onclick="deleteMenuItem(' + it.id + ', \'' + it.item_name + '\')" class="text-slate-400 hover:text-red-600 text-xs p-1" title="刪除品項">✕</button>' +
+              '</div>' +
             '</div>';
           });
           html += '</div>';
@@ -213,6 +251,86 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       });
 
       container.innerHTML = html;
+    }
+
+    // --- 店家修改彈窗 ---
+    function openEditStoreModal(storeId) {
+      const store = globalStores.find(s => s.id === storeId);
+      if (!store) return;
+      activeEditingStoreId = storeId;
+      document.getElementById('modalStoreName').value = store.name;
+      document.getElementById('modalStorePhone').value = store.phone || '';
+      document.getElementById('modalStoreCategory').value = store.category || '一般';
+      document.getElementById('editStoreModal').classList.remove('hidden');
+    }
+
+    function closeEditStoreModal() {
+      document.getElementById('editStoreModal').classList.add('hidden');
+      activeEditingStoreId = null;
+    }
+
+    async function saveStoreEdit() {
+      if (!activeEditingStoreId) return;
+      const name = document.getElementById('modalStoreName').value.trim();
+      const phone = document.getElementById('modalStorePhone').value.trim();
+      const category = document.getElementById('modalStoreCategory').value.trim();
+
+      if (!name) return alert('店家名稱不能為空！');
+
+      const res = await fetch('/api/store/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storeId: activeEditingStoreId, name, phone, category })
+      });
+      const result = await res.json();
+      if (result.success) {
+        closeEditStoreModal();
+        loadStores();
+      } else {
+        alert(result.message || '更新失敗');
+      }
+    }
+
+    // --- 單一品項修改 (微調價格/品名) ---
+    async function editMenuItemPrompt(itemId, currentName, currentPrice) {
+      const newName = prompt('修改餐點名稱：', currentName);
+      if (!newName || !newName.trim()) return;
+
+      const newPriceStr = prompt('修改餐點價格 ($)：', currentPrice);
+      if (!newPriceStr || isNaN(Number(newPriceStr))) return alert('請輸入有效的數字價格！');
+
+      const res = await fetch('/api/menu/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId,
+          itemName: newName.trim(),
+          price: Number(newPriceStr)
+        })
+      });
+      const result = await res.json();
+      if (result.success) {
+        loadStores();
+      } else {
+        alert(result.message || '更新失敗');
+      }
+    }
+
+    // --- 單一品項刪除 ---
+    async function deleteMenuItem(itemId, itemName) {
+      if (!confirm('確定要刪除 [' + itemName + '] 嗎？')) return;
+
+      const res = await fetch('/api/menu/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId })
+      });
+      const result = await res.json();
+      if (result.success) {
+        loadStores();
+      } else {
+        alert(result.message || '刪除失敗');
+      }
     }
 
     async function addStore() {
