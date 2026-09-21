@@ -89,7 +89,6 @@
 
     async function loadAdminData() {
       try {
-        // 同時抓取統計、訂單明細與可選品項
         const [initRes, sumRes, ordRes] = await Promise.all([
           fetch('/api/init-order-page'),
           fetch('/api/admin/summary'),
@@ -100,14 +99,14 @@
         const sumJson = await sumRes.json();
         const ordJson = await ordRes.json();
 
-        availableMenuItems = initJson.data.menuItems || [];
-        currentOrders = ordJson.data || [];
+        availableMenuItems = (initJson.data && initJson.data.menuItems) ? initJson.data.menuItems : [];
+        currentOrders = (ordJson.data) ? ordJson.data : [];
 
         renderSummary(sumJson.data || []);
         renderOrdersList(currentOrders);
       } catch (e) {
         console.error(e);
-        alert('載入資料失敗，請檢查資料庫');
+        document.getElementById('summaryContainer').innerHTML = '<p class="text-red-500 py-4 text-center">載入資料失敗，請確認網路連線與資料庫</p>';
       }
     }
 
@@ -115,7 +114,7 @@
       const container = document.getElementById('summaryContainer');
       let total = 0;
 
-      if (summary.length === 0) {
+      if (!summary || summary.length === 0) {
         container.innerHTML = '<p class="text-slate-400 py-4 text-center">目前無訂單統計資料</p>';
         document.getElementById('totalSummaryAmount').innerText = '總額：$0';
         return;
@@ -138,7 +137,7 @@
           <tbody class="divide-y divide-slate-100">
             ${summary.map(s => `
               <tr class="hover:bg-slate-50 transition">
-                <td class="py-2.5 px-3 font-semibold text-blue-600">[${s.store_name}]</td>
+                <td class="py-2.5 px-3 font-semibold text-blue-600">[${s.store_name || '未指定'}]</td>
                 <td class="py-2.5 px-3 font-medium text-slate-800">${s.item_name}</td>
                 <td class="py-2.5 px-3 text-slate-500 text-xs">${s.note || '-'}</td>
                 <td class="py-2.5 px-3 text-center font-bold text-slate-800">${s.qty}</td>                 <td class="py-2.5 px-3 text-right font-bold text-slate-700">$${s.subtotal}</td>
@@ -151,7 +150,7 @@
 
     function renderOrdersList(orders) {
       const container = document.getElementById('ordersContainer');
-      if (orders.length === 0) {
+      if (!orders || orders.length === 0) {
         container.innerHTML = '<p class="text-slate-400 py-4 text-center">目前無個人點餐明細</p>';
         return;
       }
@@ -173,7 +172,7 @@
               <tr class="hover:bg-slate-50 transition">
                 <td class="py-2.5 px-3 font-bold text-slate-800">${o.user_name}</td>
                 <td class="py-2.5 px-3">
-                  <span class="text-xs text-blue-600 font-semibold">[${o.store_name}]</span>
+                  <span class="text-xs text-blue-600 font-semibold">[${o.store_name || '未指定'}]</span>
                   <span class="font-medium text-slate-700 ml-1">${o.item_name}</span>
                 </td>
                 <td class="py-2.5 px-3 text-xs text-slate-500">${o.note \vert{}\vert{} '-'}</td>                 <td class="py-2.5 px-3 font-bold text-slate-700">$${o.price}</td>
@@ -191,7 +190,6 @@
       `;
     }
 
-    // 打開修改彈窗並動態裝填品項下拉選單
     function openEditModal(orderId) {
       const order = currentOrders.find(o => o.id === orderId);
       if (!order) return;
@@ -201,13 +199,16 @@
       document.getElementById('modalPrice').value = order.price;
       document.getElementById('modalNote').value = order.note || '';
 
-      // 裝填所有可選餐點
       const select = document.getElementById('modalMenuSelect');
-      select.innerHTML = availableMenuItems.map(m => `
-        <option value="${m.id}" data-price="${m.price}" ${m.id === order.item_id ? 'selected' : ''}>
-          [${m.store_name}] ${m.item_name} - $${m.price}
-        </option>
-      `).join('');
+      if (!availableMenuItems || availableMenuItems.length === 0) {
+        select.innerHTML = `<option value="${order.item_id}">目前品項 (無其他可選)</option>`;
+      } else {
+        select.innerHTML = availableMenuItems.map(m => `
+          <option value="${m.id}" data-price="${m.price}" ${m.id === order.item_id ? 'selected' : ''}>
+            [${m.store_name}] ${m.item_name} - $${m.price}
+          </option>
+        `).join('');
+      }
 
       document.getElementById('editModal').classList.remove('hidden');
     }
