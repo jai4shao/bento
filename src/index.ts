@@ -249,7 +249,56 @@ app.post('/api/menu/add', async (c) => {
 
   return c.json({ success: true, message: '品項新增成功' });
 });
+// 更新店家基本資訊 (店名、電話、分類)
+app.post('/api/store/update', async (c) => {
+  try {
+    const { storeId, name, phone, category } = await c.req.json();
+    if (!storeId || !name) return c.json({ success: false, message: '店家名稱不能為空' }, 400);
 
+    await c.env.DB.prepare(`
+      UPDATE stores 
+      SET name = ?, phone = ?, category = ? 
+      WHERE id = ?
+    `).bind(name.trim(), phone || '', category || '一般', storeId).run();
+
+    return c.json({ success: true, message: '店家資訊更新成功！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '更新失敗' }, 500);
+  }
+});
+
+// 更新個別菜單品項 (調價、改品名)
+app.post('/api/menu/update', async (c) => {
+  try {
+    const { itemId, itemName, price } = await c.req.json();
+    if (!itemId || !itemName || price === undefined) {
+      return c.json({ success: false, message: '品項名稱與價格為必填' }, 400);
+    }
+
+    await c.env.DB.prepare(`
+      UPDATE menu_items 
+      SET item_name = ?, price = ? 
+      WHERE id = ?
+    `).bind(itemName.trim(), Number(price), itemId).run();
+
+    return c.json({ success: true, message: '品項更新成功！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '更新失敗' }, 500);
+  }
+});
+
+// 刪除單一餐點品項
+app.post('/api/menu/delete', async (c) => {
+  try {
+    const { itemId } = await c.req.json();
+    if (!itemId) return c.json({ success: false, message: '請提供品項ID' }, 400);
+
+    await c.env.DB.prepare("DELETE FROM menu_items WHERE id = ?").bind(itemId).run();
+    return c.json({ success: true, message: '品項已刪除！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
+  }
+});
 // ==========================================
 // 4. 後台管理與收款 API
 // ==========================================
