@@ -178,7 +178,47 @@ app.post('/api/user/add', async (c) => {
     return c.json({ success: false, message: `資料庫錯誤: ${err?.message || err}` }, 400);
   }
 });
+// 前台個人自我刪除餐點 (嚴格限制只能刪除自己的)
+app.post('/api/order/self-delete', async (c) => {
+  try {
+    const { orderId, userName } = await c.req.json();
+    if (!orderId || !userName) return c.json({ success: false, message: '參數不完整' }, 400);
 
+    const result = await c.env.DB.prepare(
+      "DELETE FROM orders WHERE id = ? AND user_name = ?"
+    ).bind(orderId, userName).run();
+
+    if (result.meta.changes === 0) {
+      return c.json({ success: false, message: '刪除失敗：無權限或找不到該筆點餐' }, 403);
+    }
+
+    return c.json({ success: true, message: '已取消該筆餐點！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
+  }
+});
+
+// 前台個人自我修改餐點備註/更換品項 (嚴格限制只能改自己的)
+app.post('/api/order/self-update', async (c) => {
+  try {
+    const { orderId, userName, itemId, note, price } = await c.req.json();
+    if (!orderId || !userName || !itemId) return c.json({ success: false, message: '參數不完整' }, 400);
+
+    const result = await c.env.DB.prepare(`
+      UPDATE orders 
+      SET item_id = ?, note = ?, price = ?
+      WHERE id = ? AND user_name = ?
+    `).bind(itemId, note || '', price, orderId, userName).run();
+
+    if (result.meta.changes === 0) {
+      return c.json({ success: false, message: '修改失敗：無權限或找不到該筆點餐' }, 403);
+    }
+
+    return c.json({ success: true, message: '餐點修改成功！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '修改失敗' }, 500);
+  }
+});
 // ==========================================
 // 3. 店家與菜單管理 API
 // ==========================================
