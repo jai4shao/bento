@@ -126,16 +126,36 @@ app.get('/api/init-order-page', async (c) => {
 // ==========================================
 // 2. 點餐與人員 API
 // ==========================================
+// 批次送出點餐 (支援一次點多份/多種餐點)
 app.post('/api/order/submit', async (c) => {
-  const { userName, itemId, note, price } = await c.req.json();
-  if (!userName || !itemId) return c.json({ success: false, message: '請選擇姓名與餐點' }, 400);
+  try {
+    const { userName, items } = await c.req.json();
+    if (!userName || !items || !Array.isArray(items) || items.length === 0) {
+      return c.json({ success: false, message: '請選擇姓名與至少一項餐點' }, 400);
+    }
 
-  await c.env.DB.prepare(`
-    INSERT INTO orders (user_name, item_id, note, price, paid_amount, is_paid)
-    VALUES (?, ?, ?, ?, 0, 0)
-  `).bind(userName, itemId, note || '', price || 0).run();
+    const db = c.env.DB;
+    const statements: any[] = [];
 
-  return c.json({ success: true, message: '點餐成功！' });
+    // 每份餐點依據數量展開寫入 orders 表格
+    for (const item of items) {
+      const qty = Math.max(1, Number(item.qty || 1));
+      for (let i = 0; i < qty; i++) {
+        statements.push(
+          db.prepare(`
+            INSERT INTO orders (user_name, item_id, note, price, paid_amount, is_paid)
+            VALUES (?, ?, ?, ?, 0, 0)
+          `).bind(userName, item.itemId, item.note || '', Number(item.price || 0))
+        );
+      }
+    }
+
+    await db.batch(statements);
+    return c.json({ success: true, message: `成功送出 ${statements.length} 份餐點！` });
+  } catch (err: any) {
+    console.error('Submit orders error:', err);
+    return c.json({ success: false, message: err?.message || '點餐送出失敗' }, 500);
+  }
 });
 
 // 新增人員 API
