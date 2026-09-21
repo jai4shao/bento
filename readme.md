@@ -14,7 +14,6 @@
 
 ## 💡 快速啟用指南 (僅需 1 分鐘)
 
-### 事前準備
 ### 事前準備（若已有帳號可直接略過）
 1. <a href="https://github.com/signup" target="_blank">註冊 GitHub 帳號</a>（用於存放您的系統專案複本）。
 2. <a href="https://dash.cloudflare.com/sign-up" target="_blank">註冊 Cloudflare 帳號</a>（免費方案即可完整運作）。
