@@ -21,9 +21,10 @@
 ### 部署步驟
 1. 點擊上方的 **「Deploy to Cloudflare Workers」** 藍色按鈕。
 2. 授權 GitHub 並選擇您的 Cloudflare 帳號，點擊確認部署。
-   > 系統會自動為您建立 D1 資料庫並完成所有綁定。
-3. 部署完成後，直接點擊配發的網址（`https://xxx.workers.dev`）開啟首頁。
-   > 系統在首次訪問時會自動完成資料表初始化，無需手動執行任何 SQL 指令。
+   > 系統會全自動為您建立 D1 資料庫並完成設定。
+3. 部署完成後，點擊網址（`https://xxx.workers.dev`）即可開始使用！
+   > 💡 **小提醒（若首次建立 Worker）**：  
+   > 若畫面未出現可點擊的網址，請點進該 Worker 專案 ➔ 切換到 **Settings** ➔ **Triggers**（或 **Domains & Routes**），將 **`workers.dev`** 網址按鈕切換為「啟用（Enabled）」即可。
 
 ---
 
