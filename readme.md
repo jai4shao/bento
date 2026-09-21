@@ -1,15 +1,43 @@
-# 🍱 班級/團隊訂便當系統
+# 🍱 辦公室 / 團隊便當飲料團購系統
 
-點擊下方按鈕即可一鍵複製並部署至 Cloudflare Workers：
+專為辦公室與三班制團隊設計的點餐系統，支援便當加總、飲料甜度冰量規格選單、滷味炸物個人分袋叫餐、手機對帳找零與一鍵防跑單結單。
+
+---
+
+## 🚀 一鍵部署至 Cloudflare Workers
+
+點擊下方按鈕即可一鍵複製本專案並部署至您的 Cloudflare 帳號：
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jai4shao/bento)
 
-### 💡 第一次使用設置步驟 (僅需 2 分鐘)：
-1. 點擊上方按鈕，登入您的 **Cloudflare 帳號** 並按確認部署。
-2. 進入 Cloudflare 後台：
-   - 點擊左側 **Storage & Databases** ➔ **D1 SQL Database** ➔ 點擊 **Create Database**（名稱填寫 `bento_db`）。
-   - 進入該資料庫的 **Console** 分頁，將專案中的 `schema.sql` 貼上並按下 **Execute** 完成建表。
-3. 回到剛建立的 Worker ➔ **Settings** ➔ **Bindings**：
-   - 點擊 **Add Binding** ➔ 選擇 **D1 Database**。
-   - Variable name 填寫 `DB`，Database 選擇 `bento_db`。
-4. 點擊 Worker 網址，即可開始使用！
+---
+
+## 💡 快速啟用指南 (僅需 1 分鐘)
+
+### 事前準備
+1. **GitHub 帳號**（若無請先註冊，用於存放您的專案複本）。
+2. **Cloudflare 帳號**（免費方案即可完整運行）。
+
+### 部署步驟
+1. 點擊上方的 **「Deploy to Cloudflare Workers」** 藍色按鈕。
+2. 授權 GitHub 並選擇您的 Cloudflare 帳號，點擊確認部署。
+   > 系統會自動為您建立 D1 資料庫並完成所有綁定。
+3. 部署完成後，直接點擊配發的網址（`https://xxx.workers.dev`）開啟首頁。
+   > 系統在首次訪問時會自動完成資料表初始化，無需手動執行任何 SQL 指令。
+
+---
+
+## 🛠️ 系統功能與操作入口
+
+- **前台登記頁面 (`/`)**：挑選姓名、瀏覽當日供餐店家菜單、支援多份點餐與規格備註；僅能修改/取消自己的點餐紀錄。
+- **店家與菜單管理 (`/store_admin`)**：
+  - **本日供餐快捷總覽**：隨時檢視與切換當班供餐店家，支援一鍵清空重選。
+  - **三大核心分類**：
+    - `便當`：正餐加總叫餐。
+    - `飲料`：自動帶入固定糖量與冰量規格。
+    - `合併點餐`：鹽酥雞、滷味、車輪餅等個人分裝餐點。
+  - **AI 匯入助手**：提供 3 種分類專屬 Prompt，複製後讓 AI 讀取菜單圖片即可產生匯入語法。
+- **訂單核銷後台 (`/admin`)**：
+  - **一鍵結單鎖定**：向店家訂餐後一鍵結單，前台立即上鎖防止跑單加訂。
+  - **店家分卡叫餐**：依店家各自獨立成卡，合併點餐自動轉為「個人分袋打包叫餐清單」。
+  - **手機卡片對帳**：點擊人名展開點餐明細；輸入大鈔自動計算應找金額，確認找零後自動結清校正。
