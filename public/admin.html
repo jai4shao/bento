@@ -11,10 +11,17 @@
 
     <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
       <div>
-        <h1 class="text-2xl font-bold text-slate-800">📋 便當訂單核銷與統計</h1>
-        <p class="text-xs text-slate-500 mt-1">即時統計叫餐數量、個人總額與找零結清</p>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-2xl font-bold text-slate-800">📋 便當訂單核銷與統計</h1>
+          <span id="lockStatusBadge" class="text-xs font-bold px-2.5 py-1 rounded-full border">載入中...</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">電話下單後請點擊「截止點餐」，避免事後有人偷加訂或跑單</p>
       </div>
-      <div class="flex items-center space-x-2">
+      <div class="flex items-center flex-wrap gap-2">
+        <!-- 結單/開放 切換按鈕 -->
+        <button id="toggleLockBtn" onclick="toggleOrderLock()" class="text-xs font-bold px-4 py-2 rounded-xl border shadow-sm transition">
+          切換狀態中...
+        </button>
         <a href="/" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-200 transition">回點餐前台</a>
         <a href="/store_admin" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-200 transition">店家管理</a>
         <button onclick="resetAllOrders()" class="text-xs font-semibold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3.5 py-2 rounded-xl border border-red-200 transition">清空所有訂單</button>
@@ -45,11 +52,11 @@
 
   </div>
 
-  <!-- 修改訂單彈窗 -->
+  <!-- 修改訂單彈窗 (管理員專用) -->
   <div id="editModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
       <div class="flex justify-between items-center border-b pb-3">
-        <h3 class="text-lg font-bold text-slate-800">修改單筆餐點品項</h3>
+        <h3 class="text-lg font-bold text-slate-800">管理員修改餐點品項</h3>
         <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
       </div>
       <div class="space-y-3 text-sm">
@@ -68,7 +75,7 @@
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">備註需求</label>
-          <input type="text" id="modalNote" placeholder="飯少、不辣等" class="w-full border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
+          <input type="text" id="modalNote" placeholder="微糖微冰、飯少等" class="w-full border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
         </div>
       </div>
       <div class="flex justify-end space-x-2 pt-3 border-t">
@@ -82,26 +89,71 @@
     let rawOrders = [];
     let availableMenuItems = [];
     let activeEditingOrderId = null;
+    let isCurrentlyLocked = false;
 
     async function loadAdminData() {
       try {
-        const [initRes, sumRes, ordRes] = await Promise.all([
+        const [initRes, sumRes, ordRes, statusRes] = await Promise.all([
           fetch('/api/init-order-page'),
           fetch('/api/admin/summary'),
-          fetch('/api/admin/orders')
+          fetch('/api/admin/orders'),
+          fetch('/api/system/status')
         ]);
         const initJson = await initRes.json();
         const sumJson = await sumRes.json();
         const ordJson = await ordRes.json();
+        const statusJson = await statusRes.json();
 
         availableMenuItems = (initJson.data && initJson.data.menuItems) ? initJson.data.menuItems : [];
         rawOrders = ordJson.data || [];
+        isCurrentlyLocked = statusJson.isLocked || false;
 
+        renderLockStatus();
         renderSummary(sumJson.data || []);
         renderUserAggregatedOrders(rawOrders);
       } catch (e) {
         console.error(e);
         document.getElementById('summaryContainer').innerHTML = '<p class="text-red-500 py-4 text-center">載入資料失敗</p>';
+      }
+    }
+
+    function renderLockStatus() {
+      const badge = document.getElementById('lockStatusBadge');
+      const btn = document.getElementById('toggleLockBtn');
+
+      if (isCurrentlyLocked) {
+        badge.innerText = '🔴 已結單 (已截止)';
+        badge.className = 'text-xs font-bold px-2.5 py-1 rounded-full border bg-red-50 text-red-700 border-red-200';
+        btn.innerText = '🔓 重新開放點餐';
+        btn.className = 'text-xs font-bold px-4 py-2 rounded-xl border bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm transition';
+      } else {
+        badge.innerText = '🟢 開放登記中';
+        badge.className = 'text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200';
+        btn.innerText = '🔒 截止點餐 (已向店家下單)';
+        btn.className = 'text-xs font-bold px-4 py-2 rounded-xl border bg-red-600 hover:bg-red-700 text-white border-red-600 shadow-sm transition';
+      }
+    }
+
+    async function toggleOrderLock() {
+      const targetState = !isCurrentlyLocked;
+      const confirmText = targetState 
+        ? '確定要「截止點餐」嗎？\n截止後前台將無法送出點餐、也無法自己取消或修改餐點。' 
+        : '確定要「重新開放點餐」嗎？';
+      
+      if (!confirm(confirmText)) return;
+
+      const res = await fetch('/api/admin/toggle-lock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isLocked: targetState })
+      });
+      const json = await res.json();
+      if (json.success) {
+        isCurrentlyLocked = targetState;
+        renderLockStatus();
+        alert(json.message);
+      } else {
+        alert(json.message || '操作失敗');
       }
     }
 
@@ -139,7 +191,6 @@
       container.innerHTML = html;
     }
 
-    // 將所有訂單按個人 (user_name) 進行分組加總
     function renderUserAggregatedOrders(orders) {
       const container = document.getElementById('userOrdersContainer');
       if (!orders || orders.length === 0) {
@@ -186,7 +237,6 @@
           }
         }
 
-        // 渲染該員所點的所有餐點品項小卡，附帶獨立修改與刪除按鈕
         let itemsHtml = '<div class="space-y-1.5 py-1">';
         u.items.forEach(it => {
           itemsHtml += '<div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs">' +
@@ -224,7 +274,6 @@
       container.innerHTML = html;
     }
 
-    // 依個人更新實收金額並自動計算結清狀態
     async function onUserPaidAmountChange(userName, totalPrice, val) {
       const paid = Number(val || 0);
       const isPaid = paid >= totalPrice ? 1 : 0;
@@ -236,7 +285,6 @@
       loadAdminData();
     }
 
-    // 勾選個人全額結清
     async function toggleUserPaidCheck(userName, totalPrice, isChecked) {
       await fetch('/api/admin/user/paid', {
         method: 'POST',
