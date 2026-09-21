@@ -106,7 +106,7 @@
         renderOrdersList(currentOrders);
       } catch (e) {
         console.error(e);
-        document.getElementById('summaryContainer').innerHTML = '<p class="text-red-500 py-4 text-center">載入資料失敗，請確認網路連線與資料庫</p>';
+        document.getElementById('summaryContainer').innerHTML = '<p class="text-red-500 py-4 text-center">載入資料失敗，請檢查網路連線或重新登入</p>';
       }
     }
 
@@ -121,31 +121,34 @@
       }
 
       summary.forEach(s => total += (s.subtotal || 0));
-      document.getElementById('totalSummaryAmount').innerText = `總額：$${total}`;
+      document.getElementById('totalSummaryAmount').innerText = '總額：$' + total;
 
-      container.innerHTML = `
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="border-b border-slate-200 text-slate-500 text-xs">
-              <th class="py-2.5 px-3">店家</th>
-              <th class="py-2.5 px-3">品項名稱</th>
-              <th class="py-2.5 px-3">備註</th>
-              <th class="py-2.5 px-3 text-center">數量</th>
-              <th class="py-2.5 px-3 text-right">小計</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            ${summary.map(s => `
-              <tr class="hover:bg-slate-50 transition">
-                <td class="py-2.5 px-3 font-semibold text-blue-600">[${s.store_name || '未指定'}]</td>
-                <td class="py-2.5 px-3 font-medium text-slate-800">${s.item_name}</td>
-                <td class="py-2.5 px-3 text-slate-500 text-xs">${s.note || '-'}</td>
-                <td class="py-2.5 px-3 text-center font-bold text-slate-800">${s.qty}</td>                 <td class="py-2.5 px-3 text-right font-bold text-slate-700">$${s.subtotal}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
+      let html = '<table class="w-full text-left border-collapse">' +
+        '<thead>' +
+          '<tr class="border-b border-slate-200 text-slate-500 text-xs">' +
+            '<th class="py-2.5 px-3">店家</th>' +
+            '<th class="py-2.5 px-3">品項名稱</th>' +
+            '<th class="py-2.5 px-3">備註</th>' +
+            '<th class="py-2.5 px-3 text-center">數量</th>' +
+            '<th class="py-2.5 px-3 text-right">小計</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody class="divide-y divide-slate-100">';
+
+      summary.forEach(s => {
+        const storeName = s.store_name ? s.store_name : '未指定';
+        const noteText = s.note ? s.note : '-';
+        html += '<tr class="hover:bg-slate-50 transition">' +
+          '<td class="py-2.5 px-3 font-semibold text-blue-600">[' + storeName + ']</td>' +
+          '<td class="py-2.5 px-3 font-medium text-slate-800">' + s.item_name + '</td>' +
+          '<td class="py-2.5 px-3 text-slate-500 text-xs">' + noteText + '</td>' +
+          '<td class="py-2.5 px-3 text-center font-bold text-slate-800">' + s.qty + '</td>' +
+          '<td class="py-2.5 px-3 text-right font-bold text-slate-700">$' + s.subtotal + '</td>' +
+        '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
     }
 
     function renderOrdersList(orders) {
@@ -155,39 +158,44 @@
         return;
       }
 
-      container.innerHTML = `
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="border-b border-slate-200 text-slate-500 text-xs">
-              <th class="py-2.5 px-3">姓名</th>
-              <th class="py-2.5 px-3">店家 / 品項</th>
-              <th class="py-2.5 px-3">備註</th>
-              <th class="py-2.5 px-3">應付</th>
-              <th class="py-2.5 px-3 text-center">已付款</th>
-              <th class="py-2.5 px-3 text-right">操作</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            ${orders.map(o => `
-              <tr class="hover:bg-slate-50 transition">
-                <td class="py-2.5 px-3 font-bold text-slate-800">${o.user_name}</td>
-                <td class="py-2.5 px-3">
-                  <span class="text-xs text-blue-600 font-semibold">[${o.store_name || '未指定'}]</span>
-                  <span class="font-medium text-slate-700 ml-1">${o.item_name}</span>
-                </td>
-                <td class="py-2.5 px-3 text-xs text-slate-500">${o.note \vert{}\vert{} '-'}</td>                 <td class="py-2.5 px-3 font-bold text-slate-700">$${o.price}</td>
-                <td class="py-2.5 px-3 text-center">
-                  <input type="checkbox" onchange="togglePaid(${o.id}, ${o.price}, this.checked)" ${o.is_paid ? 'checked' : ''} class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer">
-                </td>
-                <td class="py-2.5 px-3 text-right space-x-2">
-                  <button onclick="openEditModal(${o.id})" class="text-xs text-blue-600 hover:text-blue-800 font-medium">修改</button>
-                  <button onclick="deleteOrder(${o.id})" class="text-xs text-red-500 hover:text-red-700 font-medium">刪除</button>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
+      let html = '<table class="w-full text-left border-collapse">' +
+        '<thead>' +
+          '<tr class="border-b border-slate-200 text-slate-500 text-xs">' +
+            '<th class="py-2.5 px-3">姓名</th>' +
+            '<th class="py-2.5 px-3">店家 / 品項</th>' +
+            '<th class="py-2.5 px-3">備註</th>' +
+            '<th class="py-2.5 px-3">應付</th>' +
+            '<th class="py-2.5 px-3 text-center">已付款</th>' +
+            '<th class="py-2.5 px-3 text-right">操作</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody class="divide-y divide-slate-100">';
+
+      orders.forEach(o => {
+        const storeName = o.store_name ? o.store_name : '未指定';
+        const noteText = o.note ? o.note : '-';
+        const isChecked = o.is_paid ? 'checked' : '';
+
+        html += '<tr class="hover:bg-slate-50 transition">' +
+          '<td class="py-2.5 px-3 font-bold text-slate-800">' + o.user_name + '</td>' +
+          '<td class="py-2.5 px-3">' +
+            '<span class="text-xs text-blue-600 font-semibold">[' + storeName + ']</span>' +
+            '<span class="font-medium text-slate-700 ml-1">' + o.item_name + '</span>' +
+          '</td>' +
+          '<td class="py-2.5 px-3 text-xs text-slate-500">' + noteText + '</td>' +
+          '<td class="py-2.5 px-3 font-bold text-slate-700">$' + o.price + '</td>' +
+          '<td class="py-2.5 px-3 text-center">' +
+            '<input type="checkbox" onchange="togglePaid(' + o.id + ', ' + o.price + ', this.checked)" ' + isChecked + ' class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer">' +
+          '</td>' +
+          '<td class="py-2.5 px-3 text-right space-x-2">' +
+            '<button onclick="openEditModal(' + o.id + ')" class="text-xs text-blue-600 hover:text-blue-800 font-medium">修改</button>' +
+            '<button onclick="deleteOrder(' + o.id + ')" class="text-xs text-red-500 hover:text-red-700 font-medium">刪除</button>' +
+          '</td>' +
+        '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
     }
 
     function openEditModal(orderId) {
@@ -197,17 +205,20 @@
       activeEditingOrderId = orderId;
       document.getElementById('modalUserName').value = order.user_name;
       document.getElementById('modalPrice').value = order.price;
-      document.getElementById('modalNote').value = order.note || '';
+      document.getElementById('modalNote').value = order.note ? order.note : '';
 
       const select = document.getElementById('modalMenuSelect');
       if (!availableMenuItems || availableMenuItems.length === 0) {
-        select.innerHTML = `<option value="${order.item_id}">目前品項 (無其他可選)</option>`;
+        select.innerHTML = '<option value="' + order.item_id + '">目前品項 (無其他品項可選)</option>';
       } else {
-        select.innerHTML = availableMenuItems.map(m => `
-          <option value="${m.id}" data-price="${m.price}" ${m.id === order.item_id ? 'selected' : ''}>
-            [${m.store_name}] ${m.item_name} - $${m.price}
-          </option>
-        `).join('');
+        let optHtml = '';
+        availableMenuItems.forEach(m => {
+          const isSel = (m.id === order.item_id) ? 'selected' : '';
+          optHtml += '<option value="' + m.id + '" data-price="' + m.price + '" ' + isSel + '>' +
+            '[' + m.store_name + '] ' + m.item_name + ' - $' + m.price +
+          '</option>';
+        });
+        select.innerHTML = optHtml;
       }
 
       document.getElementById('editModal').classList.remove('hidden');
