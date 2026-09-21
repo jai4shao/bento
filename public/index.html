@@ -568,8 +568,9 @@
       }
     }
 
-    // 打開自我修改彈窗
+// 打開自我修改彈窗 (只列出「該餐點所屬店家」的菜單品項)
     function openSelfEditModal(orderId) {
+      if (isLocked) return alert('今日已截止訂餐，無法修改！');
       const order = allOrders.find(o => o.id === orderId);
       if (!order) return;
 
@@ -577,10 +578,19 @@
       document.getElementById('selfEditPrice').value = order.price;
       document.getElementById('selfEditNote').value = order.note || '';
 
-      // 裝填所有可選菜單品項
+      // 1. 找出這道餐點原本屬於哪間店
+      const originalItem = allMenuItems.find(m => m.id === order.item_id);
+      const targetStoreId = originalItem ? originalItem.store_id : null;
+
+      // 2. 只過濾出同一間店家的菜單品項
+      let sameStoreItems = allMenuItems;
+      if (targetStoreId) {
+        sameStoreItems = allMenuItems.filter(m => m.store_id === targetStoreId);
+      }
+
       const select = document.getElementById('selfEditItemSelect');
       let html = '';
-      allMenuItems.forEach(m => {
+      sameStoreItems.forEach(m => {
         const isSel = (m.id === order.item_id) ? 'selected' : '';
         html += '<option value="' + m.id + '" data-price="' + m.price + '" ' + isSel + '>' +
           '[' + m.store_name + '] ' + m.item_name + ' - $' + m.price +
