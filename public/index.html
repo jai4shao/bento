@@ -9,10 +9,11 @@
 <body class="bg-slate-100 min-h-screen text-slate-800 p-4 md:p-8">
   <div class="max-w-4xl mx-auto space-y-6">
 
+    <!-- 頂部卡片 -->
     <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">🍱 今日便當 / 飲料登記</h1>
-        <p class="text-xs text-slate-500 mt-1">選定姓名後點選餐點加入清單，可點多份與多種品項</p>
+        <p class="text-xs text-slate-500 mt-1">選定姓名後點擊店家挑選餐點，支援多份與規格化備註</p>
       </div>
       <div class="space-x-2">
         <a href="/admin" class="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3.5 py-2 rounded-xl border border-blue-200 transition">訂單核銷後台</a>
@@ -20,6 +21,7 @@
       </div>
     </header>
 
+    <!-- 點餐操作卡片 -->
     <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-5">
       
       <!-- 1. 人員選擇 -->
@@ -35,21 +37,15 @@
         </div>
       </div>
 
-      <!-- 2. 店家標籤同一行切換 -->
+      <!-- 2. 店家按鈕區 (點擊跳出該店菜單 Modal) -->
       <div>
-        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">2. 選擇供餐店家</label>
-        <div id="storeTabs" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar"></div>
-      </div>
-
-      <!-- 3. 餐點選擇卡片 -->
-      <div>
-        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">3. 點擊餐點加入點餐清單</label>
-        <div id="menuCardsContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-72 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-200">
-          <p class="col-span-full text-slate-400 py-6 text-center text-xs">載入菜單中...</p>
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">2. 點選店家瀏覽菜單</label>
+        <div id="storeButtonsContainer" class="flex flex-wrap gap-2.5">
+          <!-- 動態載入店家按鈕 -->
         </div>
       </div>
 
-      <!-- 4. 本次選取清單 (購物車) -->
+      <!-- 3. 已選餐點清單 (購物車) -->
       <div class="border-t pt-4">
         <div class="flex justify-between items-center mb-2">
           <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">🛒 已選餐點清單</label>
@@ -57,7 +53,9 @@
         </div>
         
         <div id="cartContainer" class="space-y-2 mb-4">
-          <p class="text-xs text-slate-400 py-4 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">尚未加入任何餐點，請點選上方菜單卡片</p>
+          <p class="text-xs text-slate-400 py-4 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            尚未加入任何餐點，請點擊上方店家按鈕挑選餐點
+          </p>
         </div>
 
         <button onclick="submitBatchOrder()" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow transition text-sm">
@@ -76,12 +74,98 @@
 
   </div>
 
+  <!-- 🏪 菜單選擇彈窗 Modal (首頁不再被長菜單佔據) -->
+  <div id="menuModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+      <!-- Modal 標題列 -->
+      <div class="p-4 sm:p-5 border-b flex justify-between items-center bg-slate-50">
+        <div>
+          <h3 id="modalStoreTitle" class="text-lg font-bold text-slate-800">店家菜單</h3>
+          <p id="modalStoreSubtitle" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button onclick="closeMenuModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2 leading-none">&times;</button>
+      </div>
+
+      <!-- 搜尋菜單 -->
+      <div class="p-3 border-b bg-white">
+        <input type="text" id="menuSearchInput" oninput="onMenuSearch()" placeholder="🔍 搜尋該店品項名稱..." class="w-full text-xs border border-slate-300 rounded-xl px-3.5 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <!-- 菜單品項卡片網格 -->
+      <div id="modalMenuGrid" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm flex-1">
+        <!-- 動態填入品項卡片 -->
+      </div>
+
+      <!-- Modal 底部關閉按鈕 -->
+      <div class="p-3 border-t bg-slate-50 flex justify-between items-center">
+        <span id="modalCartCount" class="text-xs font-semibold text-slate-600">已選 0 份</span>
+        <button onclick="closeMenuModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2 rounded-xl transition">
+          完成挑選，返回清單
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🥤 規格備註選擇彈窗 Modal (針對飲料甜度冰量、或餐點備註) -->
+  <div id="itemOptionModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-5 space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div>
+          <h3 id="optionItemName" class="text-base font-bold text-slate-800">餐點規格</h3>
+          <p id="optionItemPrice" class="text-xs text-blue-600 font-bold mt-0.5">$0</p>
+        </div>
+        <button onclick="closeOptionModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+
+      <!-- 甜度選擇 (若是飲料店顯示) -->
+      <div id="sugarSection" class="space-y-1.5">
+        <label class="text-xs font-bold text-slate-600">糖量選擇</label>
+        <div class="grid grid-cols-5 gap-1 text-xs" id="sugarGroup">
+          <button type="button" onclick="selectSugar('無糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">無糖</button>
+          <button type="button" onclick="selectSugar('微糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">微糖</button>
+          <button type="button" onclick="selectSugar('半糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">半糖</button>
+          <button type="button" onclick="selectSugar('少糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">少糖</button>
+          <button type="button" onclick="selectSugar('正常糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">正常糖</button>
+        </div>
+      </div>
+
+      <!-- 冰量選擇 (若是飲料店顯示) -->
+      <div id="iceSection" class="space-y-1.5">
+        <label class="text-xs font-bold text-slate-600">冰量選擇</label>
+        <div class="grid grid-cols-4 sm:grid-cols-7 gap-1 text-[11px]" id="iceGroup">
+          <button type="button" onclick="selectIce('熱')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">熱</button>
+          <button type="button" onclick="selectIce('常溫')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">常溫</button>
+          <button type="button" onclick="selectIce('去冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">去冰</button>
+          <button type="button" onclick="selectIce('微冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">微冰</button>
+          <button type="button" onclick="selectIce('半冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">半冰</button>
+          <button type="button" onclick="selectIce('少冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">少冰</button>
+          <button type="button" onclick="selectIce('正常冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">正常冰</button>
+        </div>
+      </div>
+
+      <!-- 其他客製備註 -->
+      <div>
+        <label class="text-xs font-bold text-slate-600 mb-1 block">其他備註需求</label>
+        <input type="text" id="customNoteInput" placeholder="如：少飯、不辣、加珍珠等" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <!-- 確認加入按鈕 -->
+      <div class="flex justify-end space-x-2 pt-2 border-t">
+        <button onclick="closeOptionModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
+        <button onclick="confirmAddToCart()" class="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">加入清單</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const STORAGE_KEY = 'bento_user_name';
     let allStores = [];
     let allMenuItems = [];
-    let selectedStoreId = null;
-    let cart = []; // { itemId, itemName, storeName, price, qty, note }
+    let activeModalStoreId = null;
+    let currentPendingItem = null;
+    let selectedSugar = '';
+    let selectedIce = '';
+    let cart = [];
 
     async function initPage() {
       try {
@@ -94,7 +178,7 @@
         allMenuItems = menuItems;
 
         renderUsers(users);
-        renderStoreTabs();
+        renderStoreButtons();
         renderOrders(orders);
       } catch (err) {
         console.error(err);
@@ -135,77 +219,183 @@
       }
     }
 
-    function renderStoreTabs() {
-      const container = document.getElementById('storeTabs');
+    // 渲染店家按鈕 (點擊跳出該店 Modal)
+    function renderStoreButtons() {
+      const container = document.getElementById('storeButtonsContainer');
       if (!allStores || allStores.length === 0) {
         container.innerHTML = '<span class="text-xs text-slate-400 py-1">目前無供餐店家</span>';
-        renderMenuCards([]);
         return;
-      }
-
-      if (!selectedStoreId || !allStores.some(s => s.id === selectedStoreId)) {
-        selectedStoreId = allStores[0].id;
       }
 
       let html = '';
       allStores.forEach(s => {
-        const isCurrent = s.id === selectedStoreId;
-        const btnStyle = isCurrent 
-          ? 'bg-blue-600 text-white shadow-sm border-blue-600' 
-          : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200';
+        const isDrink = s.category && (s.category.includes('飲料') || s.category.includes('茶'));
+        const icon = isDrink ? '🥤' : '🍱';
 
-        html += '<button onclick="switchStore(' + s.id + ')" class="px-4 py-2 rounded-xl text-xs font-bold border transition whitespace-nowrap ' + btnStyle + '">' +
-          '[' + (s.category || '便當') + '] ' + s.name +
+        html += '<button onclick="openMenuModal(' + s.id + ')" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-400 shadow-sm transition">' +
+          '<span>' + icon + '</span>' +
+          '<span class="text-slate-800">' + s.name + '</span>' +
+          '<span class="text-[10px] text-blue-600 font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">' + (s.category || '一般') + '</span>' +
         '</button>';
       });
       container.innerHTML = html;
-
-      const storeItems = allMenuItems.filter(m => m.store_id === selectedStoreId);
-      renderMenuCards(storeItems);
     }
 
-    function switchStore(storeId) {
-      selectedStoreId = storeId;
-      renderStoreTabs();
+    // 打開該店的菜單 Modal
+    function openMenuModal(storeId) {
+      const store = allStores.find(s => s.id === storeId);
+      if (!store) return;
+
+      activeModalStoreId = storeId;
+      document.getElementById('modalStoreTitle').innerText = store.name;
+      document.getElementById('modalStoreSubtitle').innerText = '分類：' + (store.category || '一般') + ' ｜ 電話：' + (store.phone || '無');
+      document.getElementById('menuSearchInput').value = '';
+
+      renderModalMenuItems();
+      updateModalCartCount();
+      document.getElementById('menuModal').classList.remove('hidden');
     }
 
-    function renderMenuCards(items) {
-      const container = document.getElementById('menuCardsContainer');
-      if (!items || items.length === 0) {
-        container.innerHTML = '<p class="col-span-full text-slate-400 py-8 text-center text-xs">該店家目前無供應品項</p>';
+    function closeMenuModal() {
+      document.getElementById('menuModal').classList.add('hidden');
+      activeModalStoreId = null;
+    }
+
+    function onMenuSearch() {
+      renderModalMenuItems();
+    }
+
+    function renderModalMenuItems() {
+      const keyword = document.getElementById('menuSearchInput').value.trim().toLowerCase();
+      const container = document.getElementById('modalMenuGrid');
+      let items = allMenuItems.filter(m => m.store_id === activeModalStoreId);
+
+      if (keyword) {
+        items = items.filter(m => m.item_name.toLowerCase().includes(keyword));
+      }
+
+      if (items.length === 0) {
+        container.innerHTML = '<p class="col-span-full text-slate-400 py-8 text-center text-xs">查無符合的餐點品項</p>';
         return;
       }
 
       let html = '';
       items.forEach(it => {
-        html += '<div onclick="addToCart(' + it.id + ')" class="cursor-pointer p-3 rounded-xl border border-slate-200 bg-white hover:border-blue-400 hover:shadow-sm transition flex flex-col justify-between">' +
-          '<span class="text-xs font-bold text-slate-800 leading-tight mb-1">' + it.item_name + '</span>' +
-          '<div class="flex justify-between items-center mt-2">' +
-            '<span class="text-xs font-bold text-blue-600">$' + it.price + '</span>' +
-            '<span class="text-[11px] text-blue-500 font-bold bg-blue-50 px-1.5 py-0.5 rounded">+加點</span>' +
+        html += '<div onclick="openOptionModal(' + it.id + ')" class="cursor-pointer p-3 rounded-xl border border-slate-200 bg-white hover:border-blue-500 hover:shadow-sm transition flex justify-between items-center">' +
+          '<div class="pr-2">' +
+            '<span class="font-bold text-slate-800 text-xs block">' + it.item_name + '</span>' +
+            '<span class="text-xs font-bold text-blue-600 mt-0.5 block">$' + it.price + '</span>' +
           '</div>' +
+          '<span class="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg shrink-0">+ 點餐</span>' +
         '</div>';
       });
       container.innerHTML = html;
     }
 
-    function addToCart(itemId) {
+    function updateModalCartCount() {
+      const count = cart.reduce((acc, c) => acc + c.qty, 0);
+      document.getElementById('modalCartCount').innerText = '清單目前已選 ' + count + ' 份餐點';
+    }
+
+    // 打開規格選擇 Modal (甜度/冰量/客製備註)
+    function openOptionModal(itemId) {
       const item = allMenuItems.find(m => m.id === itemId);
       if (!item) return;
 
-      const exist = cart.find(c => c.itemId === itemId);
+      currentPendingItem = item;
+      selectedSugar = '';
+      selectedIce = '';
+      document.getElementById('optionItemName').innerText = item.item_name;
+      document.getElementById('optionItemPrice').innerText = '$' + item.price;
+      document.getElementById('customNoteInput').value = '';
+
+      // 判斷是否為飲料店：顯示或隱藏糖量/冰量
+      const store = allStores.find(s => s.id === item.store_id);
+      const isDrink = store && store.category && (store.category.includes('飲料') || store.category.includes('茶'));
+
+      document.getElementById('sugarSection').style.display = isDrink ? 'block' : 'none';
+      document.getElementById('iceSection').style.display = isDrink ? 'block' : 'none';
+
+      // 重置按鈕高亮
+      document.querySelectorAll('.spec-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
+        btn.classList.add('text-slate-700');
+      });
+
+      // 飲料預設建議
+      if (isDrink) {
+        selectSugar('微糖');
+        selectIce('微冰');
+      }
+
+      document.getElementById('itemOptionModal').classList.remove('hidden');
+    }
+
+    function selectSugar(val) {
+      selectedSugar = val;
+      updateSpecButtonGroup('sugarGroup', val);
+    }
+
+    function selectIce(val) {
+      selectedIce = val;
+      updateSpecButtonGroup('iceGroup', val);
+    }
+
+    function updateSpecButtonGroup(groupId, val) {
+      const group = document.getElementById(groupId);
+      if (!group) return;
+      group.querySelectorAll('.spec-btn').forEach(btn => {
+        if (btn.innerText === val) {
+          btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+          btn.classList.remove('text-slate-700');
+        } else {
+          btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
+          btn.classList.add('text-slate-700');
+        }
+      });
+    }
+
+    function closeOptionModal() {
+      document.getElementById('itemOptionModal').classList.add('hidden');
+      currentPendingItem = null;
+    }
+
+    function confirmAddToCart() {
+      if (!currentPendingItem) return;
+
+      const store = allStores.find(s => s.id === currentPendingItem.store_id);
+      const isDrink = store && store.category && (store.category.includes('飲料') || store.category.includes('茶'));
+      const customNote = document.getElementById('customNoteInput').value.trim();
+
+      // 組合規格備註 (固定格式：微糖/微冰 或 微糖/微冰/加珍珠)
+      let finalNote = '';
+      if (isDrink) {
+        const specs = [];
+        if (selectedSugar) specs.push(selectedSugar);
+        if (selectedIce) specs.push(selectedIce);
+        if (customNote) specs.push(customNote);
+        finalNote = specs.join('/');
+      } else {
+        finalNote = customNote;
+      }
+
+      // 加入購物車 (同品項且相同備註者合併數量)
+      const exist = cart.find(c => c.itemId === currentPendingItem.id && c.note === finalNote);
       if (exist) {
         exist.qty += 1;
       } else {
         cart.push({
-          itemId: item.id,
-          itemName: item.item_name,
-          storeName: item.store_name,
-          price: item.price,
+          itemId: currentPendingItem.id,
+          itemName: currentPendingItem.item_name,
+          storeName: currentPendingItem.store_name,
+          price: currentPendingItem.price,
           qty: 1,
-          note: ''
+          note: finalNote
         });
       }
+
+      closeOptionModal();
+      updateModalCartCount();
       renderCart();
     }
 
@@ -215,10 +405,7 @@
         cart.splice(index, 1);
       }
       renderCart();
-    }
-
-    function updateCartNote(index, noteVal) {
-      cart[index].note = noteVal;
+      updateModalCartCount();
     }
 
     function renderCart() {
@@ -226,7 +413,7 @@
       const totalEl = document.getElementById('cartTotalPrice');
 
       if (cart.length === 0) {
-        container.innerHTML = '<p class="text-xs text-slate-400 py-4 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">尚未加入任何餐點，請點選上方菜單卡片</p>';
+        container.innerHTML = '<p class="text-xs text-slate-400 py-4 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">尚未加入任何餐點，請點擊上方店家按鈕挑選餐點</p>';
         totalEl.innerText = '小計：$0';
         return;
       }
@@ -241,16 +428,17 @@
           '<div class="flex-1">' +
             '<span class="font-semibold text-blue-600">[' + c.storeName + ']</span> ' +
             '<span class="font-bold text-slate-800">' + c.itemName + '</span> ' +
-            '<span class="text-slate-500 font-medium">($' + c.price + '/份)</span>' +
+            (c.note ? '<span class="text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[11px] ml-1">' + c.note + '</span>' : '') +
+            '<span class="text-slate-500 font-medium ml-1">($' + c.price + '/份)</span>' +
           '</div>' +
           '<div class="flex items-center gap-2">' +
-            '<input type="text" placeholder="個別備註(如微糖微冰)" value="' + (c.note || '') + '" oninput="updateCartNote(' + idx + ', this.value)" class="border border-slate-300 rounded-lg px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500 w-36">' +
             '<div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">' +
               '<button onclick="updateCartQty(' + idx + ', -1)" class="px-2 py-1 hover:bg-slate-100 font-bold">-</button>' +
               '<span class="px-2 font-bold text-slate-700">' + c.qty + '</span>' +
               '<button onclick="updateCartQty(' + idx + ', 1)" class="px-2 py-1 hover:bg-slate-100 font-bold">+</button>' +
             '</div>' +
             '<span class="font-bold text-slate-800 min-w-[50px] text-right">$' + itemSubtotal + '</span>' +
+            '<button onclick="removeCartItem(' + idx + ')" class="text-slate-400 hover:text-red-500 text-xs px-1">✕</button>' +
           '</div>' +
         '</div>';
       });
@@ -259,10 +447,16 @@
       totalEl.innerText = '小計：$' + sum;
     }
 
+    function removeCartItem(idx) {
+      cart.splice(idx, 1);
+      renderCart();
+      updateModalCartCount();
+    }
+
     async function submitBatchOrder() {
       const userName = document.getElementById('userSelect').value;
       if (!userName) return alert('請先選擇您的名字！');
-      if (cart.length === 0) return alert('點餐清單是空的，請先加入餐點！');
+      if (cart.length === 0) return alert('點餐清單是空的，請先挑選餐點！');
 
       const btn = document.getElementById('submitBtn');
       btn.disabled = true;
