@@ -24,7 +24,7 @@
    > 系統會全自動為您建立 D1 資料庫並完成設定。
 3. 部署完成後，點擊網址（`https://xxx.workers.dev`）即可開始使用！
    > 💡 **小提醒（若首次建立 Worker）**：  
-   > 若畫面未出現可點擊的網址，請點進該 Worker 專案 ➔ 切換到 **Settings** ➔ **Triggers**（或 **Domains & Routes**），將 **`workers.dev`** 網址按鈕切換為「啟用（Enabled）」即可。
+   > 若畫面未出現可點擊的網址，請點Workers & Pages 進該 Worker 專案 ➔ 切換到 **Settings** ➔ **Domains**），將 **`Worker URL`** 網址按鈕切換為「啟用（Enabled）」即可。
 
 ---
 
