@@ -269,6 +269,42 @@ app.post('/api/admin/order/paid', async (c) => {
     .run();
   return c.json({ success: true });
 });
+// 1. 依個人（姓名）整筆更新付款狀態與實收金額
+app.post('/api/admin/user/paid', async (c) => {
+  try {
+    const { userName, paidAmount, isPaid } = await c.req.json();
+    if (!userName) return c.json({ success: false, message: '請提供姓名' }, 400);
+
+    // 一次性更新該員當前所有訂單的付款狀態與實收標記
+    await c.env.DB.prepare(`
+      UPDATE orders 
+      SET paid_amount = ?, is_paid = ? 
+      WHERE user_name = ?
+    `).bind(paidAmount, isPaid ? 1 : 0, userName).run();
+
+    return c.json({ success: true, message: '個人核銷已更新！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '更新失敗' }, 500);
+  }
+});
+
+// 2. 刪除店家 (連帶清理該店菜單)
+app.post('/api/store/delete', async (c) => {
+  try {
+    const { storeId } = await c.req.json();
+    if (!storeId) return c.json({ success: false, message: '請提供店家ID' }, 400);
+
+    const db = c.env.DB;
+    await db.batch([
+      db.prepare("DELETE FROM menu_items WHERE store_id = ?").bind(storeId),
+      db.prepare("DELETE FROM stores WHERE id = ?").bind(storeId)
+    ]);
+
+    return c.json({ success: true, message: '店家及菜單已成功刪除！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
+  }
+});
 // 修改訂單內容 (換品項、備註、修改實收或應收金額)
 app.post('/api/admin/order/update', async (c) => {
   try {
