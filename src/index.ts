@@ -8,6 +8,70 @@ type Bindings = {
 const app = new Hono<{ Bindings: Bindings }>();
 
 // ==========================================
+// 🛡️ 自動初始化資料表 (Auto-Migration 防呆中介層)
+// 確保任何新人一鍵部署後，第一次打開網頁就自動建好所有資料表
+// ==========================================
+let isTablesReady = false;
+
+async function ensureTables(db: D1Database) {
+  if (isTablesReady) return; // 記憶體旗標快取，避免每次請求都重複建表
+  await db.batch([
+    db.prepare(`CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      avatar_url TEXT DEFAULT '',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS stores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      phone TEXT DEFAULT '',
+      category TEXT DEFAULT '便當',
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS menu_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      store_id INTEGER NOT NULL,
+      item_name TEXT NOT NULL,
+      price INTEGER NOT NULL DEFAULT 0,
+      is_available INTEGER DEFAULT 1,
+      sort_order INTEGER DEFAULT 0
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_name TEXT NOT NULL,
+      item_id INTEGER NOT NULL,
+      note TEXT DEFAULT '',
+      price INTEGER NOT NULL DEFAULT 0,
+      paid_amount INTEGER DEFAULT 0,
+      is_paid INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS system_settings (
+      setting_key TEXT PRIMARY KEY,
+      setting_value TEXT NOT NULL
+    )`),
+    db.prepare(`INSERT OR IGNORE INTO stores (id, name, phone, category, is_active) VALUES (1, '美味便當店', '04-7123456', '便當', 1)`),
+    db.prepare(`INSERT OR IGNORE INTO menu_items (id, store_id, item_name, price, is_available) VALUES (1, 1, '招牌排骨飯', 100, 1)`),
+    db.prepare(`INSERT OR IGNORE INTO menu_items (id, store_id, item_name, price, is_available) VALUES (2, 1, '香酥雞腿飯', 110, 1)`)
+  ]);
+  isTablesReady = true;
+}
+
+// 攔截所有 /api/* 請求，執行前確認資料表存在
+app.use('/api/*', async (c, next) => {
+  if (c.env.DB) {
+    try {
+      await ensureTables(c.env.DB);
+    } catch (e) {
+      console.error('Auto migration check failed:', e);
+    }
+  }
+  await next();
+});
+
+// ==========================================
 // 0. 靜態頁面導向
 // ==========================================
 app.get('/', (c) => c.redirect('/index.html'));
@@ -16,9 +80,8 @@ app.get('/admin', (c) => c.env.ASSETS.fetch(new Request(new URL('/admin.html', c
 app.get('/store_admin', (c) => c.env.ASSETS.fetch(new Request(new URL('/store_admin.html', c.req.url))));
 
 // ==========================================
-// 🛠️ 資料庫檢查與一鍵修復端點 (除錯專用)
+// 🛠️ 資料庫檢查與一鍵修復端點 (除錯備用)
 // ==========================================
-// 1. 查看線上 Worker 到底連到哪顆 D1、裡面有哪些表
 app.get('/api/debug-db', async (c) => {
   try {
     const tables = await c.env.DB.prepare(
@@ -37,58 +100,19 @@ app.get('/api/debug-db', async (c) => {
   }
 });
 
-// 2. 線上一鍵自動建表修復 (不管當初綁到哪顆空資料庫，點開就建好)
 app.get('/api/setup-database', async (c) => {
   try {
-    const db = c.env.DB;
-    await db.batch([
-      db.prepare(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        avatar_url TEXT DEFAULT '',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )`),
-      db.prepare(`CREATE TABLE IF NOT EXISTS stores (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        phone TEXT DEFAULT '',
-        category TEXT DEFAULT '便當',
-        is_active INTEGER DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )`),
-      db.prepare(`CREATE TABLE IF NOT EXISTS menu_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        store_id INTEGER NOT NULL,
-        item_name TEXT NOT NULL,
-        price INTEGER NOT NULL DEFAULT 0,
-        is_available INTEGER DEFAULT 1,
-        sort_order INTEGER DEFAULT 0
-      )`),
-      db.prepare(`CREATE TABLE IF NOT EXISTS orders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_name TEXT NOT NULL,
-        item_id INTEGER NOT NULL,
-        note TEXT DEFAULT '',
-        price INTEGER NOT NULL DEFAULT 0,
-        paid_amount INTEGER DEFAULT 0,
-        is_paid INTEGER DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )`),
-      db.prepare(`CREATE TABLE IF NOT EXISTS system_settings (
-        setting_key TEXT PRIMARY KEY,
-        setting_value TEXT NOT NULL
-      )`),
-      db.prepare(`INSERT OR IGNORE INTO stores (id, name, phone, category, is_active) VALUES (1, '美味便當店', '04-7123456', '便當', 1)`),
-      db.prepare(`INSERT OR IGNORE INTO menu_items (id, store_id, item_name, price, is_available) VALUES (1, 1, '招牌排骨飯', 100, 1)`),
-      db.prepare(`INSERT OR IGNORE INTO menu_items (id, store_id, item_name, price, is_available) VALUES (2, 1, '香酥雞腿飯', 110, 1)`)
-    ]);
-
+    isTablesReady = false;
+    await ensureTables(c.env.DB);
     return c.json({ success: true, message: '🎉 資料庫所有資料表已成功強制建置完成！' });
   } catch (err: any) {
     return c.json({ success: false, error: err?.message || err }, 500);
   }
 });
-// 1. 取得與切換結單狀態 API
+
+// ==========================================
+// 1. 系統狀態與點餐鎖定 API
+// ==========================================
 app.get('/api/system/status', async (c) => {
   try {
     const row: any = await c.env.DB.prepare(
@@ -121,98 +145,8 @@ app.post('/api/admin/toggle-lock', async (c) => {
   }
 });
 
-// 2. 升級點餐送出 API (加入結單防護)
-app.post('/api/order/submit', async (c) => {
-  try {
-    // 檢查是否已結單
-    const lockRow: any = await c.env.DB.prepare(
-      "SELECT setting_value FROM system_settings WHERE setting_key = 'is_order_locked'"
-    ).first();
-    if (lockRow && lockRow.setting_value === '1') {
-      return c.json({ success: false, message: '今日已截止訂餐，主揪已向店家下單！' }, 403);
-    }
-
-    const { userName, items } = await c.req.json();
-    if (!userName || !items || !Array.isArray(items) || items.length === 0) {
-      return c.json({ success: false, message: '請選擇姓名與至少一項餐點' }, 400);
-    }
-
-    const db = c.env.DB;
-    const statements: any[] = [];
-    for (const item of items) {
-      const qty = Math.max(1, Number(item.qty || 1));
-      for (let i = 0; i < qty; i++) {
-        statements.push(
-          db.prepare(`
-            INSERT INTO orders (user_name, item_id, note, price, paid_amount, is_paid)
-            VALUES (?, ?, ?, ?, 0, 0)
-          `).bind(userName, item.itemId, item.note || '', Number(item.price || 0))
-        );
-      }
-    }
-
-    await db.batch(statements);
-    return c.json({ success: true, message: `成功送出 ${statements.length} 份餐點！` });
-  } catch (err: any) {
-    return c.json({ success: false, message: err?.message || '點餐送出失敗' }, 500);
-  }
-});
-
-// 3. 升級前台自我取消 API (加入結單防護)
-app.post('/api/order/self-delete', async (c) => {
-  try {
-    const lockRow: any = await c.env.DB.prepare(
-      "SELECT setting_value FROM system_settings WHERE setting_key = 'is_order_locked'"
-    ).first();
-    if (lockRow && lockRow.setting_value === '1') {
-      return c.json({ success: false, message: '已結單下訂，無法取消！請直接聯絡主揪。' }, 403);
-    }
-
-    const { orderId, userName } = await c.req.json();
-    if (!orderId || !userName) return c.json({ success: false, message: '參數不完整' }, 400);
-
-    const result = await c.env.DB.prepare(
-      "DELETE FROM orders WHERE id = ? AND user_name = ?"
-    ).bind(orderId, userName).run();
-
-    if (result.meta.changes === 0) {
-      return c.json({ success: false, message: '刪除失敗：無權限或找不到該筆點餐' }, 403);
-    }
-    return c.json({ success: true, message: '已取消該筆餐點！' });
-  } catch (err: any) {
-    return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
-  }
-});
-
-// 4. 升級前台自我修改 API (加入結單防護)
-app.post('/api/order/self-update', async (c) => {
-  try {
-    const lockRow: any = await c.env.DB.prepare(
-      "SELECT setting_value FROM system_settings WHERE setting_key = 'is_order_locked'"
-    ).first();
-    if (lockRow && lockRow.setting_value === '1') {
-      return c.json({ success: false, message: '已結單下訂，無法修改品項！' }, 403);
-    }
-
-    const { orderId, userName, itemId, note, price } = await c.req.json();
-    if (!orderId || !userName || !itemId) return c.json({ success: false, message: '參數不完整' }, 400);
-
-    const result = await c.env.DB.prepare(`
-      UPDATE orders 
-      SET item_id = ?, note = ?, price = ?
-      WHERE id = ? AND user_name = ?
-    `).bind(itemId, note || '', price, orderId, userName).run();
-
-    if (result.meta.changes === 0) {
-      return c.json({ success: false, message: '修改失敗：無權限或找不到該筆點餐' }, 403);
-    }
-    return c.json({ success: true, message: '餐點修改成功！' });
-  } catch (err: any) {
-    return c.json({ success: false, message: err?.message || '修改失敗' }, 500);
-  }
-});
 // ==========================================
-// 1. 初始化前台資料 API
+// 2. 初始化前台資料 API
 // ==========================================
 app.get('/api/init-order-page', async (c) => {
   const db = c.env.DB;
@@ -246,11 +180,17 @@ app.get('/api/init-order-page', async (c) => {
 });
 
 // ==========================================
-// 2. 點餐與人員 API
+// 3. 點餐與人員 API
 // ==========================================
-// 批次送出點餐 (支援一次點多份/多種餐點)
 app.post('/api/order/submit', async (c) => {
   try {
+    const lockRow: any = await c.env.DB.prepare(
+      "SELECT setting_value FROM system_settings WHERE setting_key = 'is_order_locked'"
+    ).first();
+    if (lockRow && lockRow.setting_value === '1') {
+      return c.json({ success: false, message: '今日已截止訂餐，主揪已向店家下單！' }, 403);
+    }
+
     const { userName, items } = await c.req.json();
     if (!userName || !items || !Array.isArray(items) || items.length === 0) {
       return c.json({ success: false, message: '請選擇姓名與至少一項餐點' }, 400);
@@ -259,7 +199,6 @@ app.post('/api/order/submit', async (c) => {
     const db = c.env.DB;
     const statements: any[] = [];
 
-    // 每份餐點依據數量展開寫入 orders 表格
     for (const item of items) {
       const qty = Math.max(1, Number(item.qty || 1));
       for (let i = 0; i < qty; i++) {
@@ -280,29 +219,29 @@ app.post('/api/order/submit', async (c) => {
   }
 });
 
-// 新增人員 API
 app.post('/api/user/add', async (c) => {
   try {
     const body = await c.req.json();
     const name = body?.name ? String(body.name).trim() : '';
+    if (!name) return c.json({ success: false, message: '姓名不能為空' }, 400);
 
-    if (!name) {
-      return c.json({ success: false, message: '姓名不能為空' }, 400);
-    }
-
-    await c.env.DB.prepare(
-      "INSERT INTO users (name) VALUES (?)"
-    ).bind(name).run();
-
+    await c.env.DB.prepare("INSERT INTO users (name) VALUES (?)").bind(name).run();
     return c.json({ success: true, message: '新增成功' });
   } catch (err: any) {
     console.error('Add user error:', err);
     return c.json({ success: false, message: `資料庫錯誤: ${err?.message || err}` }, 400);
   }
 });
-// 前台個人自我刪除餐點 (嚴格限制只能刪除自己的)
+
 app.post('/api/order/self-delete', async (c) => {
   try {
+    const lockRow: any = await c.env.DB.prepare(
+      "SELECT setting_value FROM system_settings WHERE setting_key = 'is_order_locked'"
+    ).first();
+    if (lockRow && lockRow.setting_value === '1') {
+      return c.json({ success: false, message: '已結單下訂，無法取消！請直接聯絡主揪。' }, 403);
+    }
+
     const { orderId, userName } = await c.req.json();
     if (!orderId || !userName) return c.json({ success: false, message: '參數不完整' }, 400);
 
@@ -320,9 +259,15 @@ app.post('/api/order/self-delete', async (c) => {
   }
 });
 
-// 前台個人自我修改餐點備註/更換品項 (嚴格限制只能改自己的)
 app.post('/api/order/self-update', async (c) => {
   try {
+    const lockRow: any = await c.env.DB.prepare(
+      "SELECT setting_value FROM system_settings WHERE setting_key = 'is_order_locked'"
+    ).first();
+    if (lockRow && lockRow.setting_value === '1') {
+      return c.json({ success: false, message: '已結單下訂，無法修改品項！' }, 403);
+    }
+
     const { orderId, userName, itemId, note, price } = await c.req.json();
     if (!orderId || !userName || !itemId) return c.json({ success: false, message: '參數不完整' }, 400);
 
@@ -341,44 +286,37 @@ app.post('/api/order/self-update', async (c) => {
     return c.json({ success: false, message: err?.message || '修改失敗' }, 500);
   }
 });
+
 // ==========================================
-// 3. 店家與菜單管理 API
+// 4. 店家與菜單管理 API
 // ==========================================
-// 新增店家
 app.post('/api/store/add', async (c) => {
   const { name, phone, category } = await c.req.json();
   if (!name) return c.json({ success: false, message: '請輸入店家名稱' }, 400);
 
   await c.env.DB.prepare("INSERT INTO stores (name, phone, category, is_active) VALUES (?, ?, ?, 1)")
-    .bind(name.trim(), phone || '', category || '一般')
+    .bind(name.trim(), phone || '', category || '便當')
     .run();
 
   return c.json({ success: true, message: '店家新增成功' });
 });
-// 執行自訂 SQL (強化版：自動清洗 Markdown、去除空行、逐句批次執行)
+
 app.post('/api/admin/raw-sql', async (c) => {
   try {
     const body = await c.req.json();
     let sqlText = body?.sql ? String(body.sql) : '';
 
-    if (!sqlText.trim()) {
-      return c.json({ success: false, message: '請輸入 SQL 語法' }, 400);
-    }
+    if (!sqlText.trim()) return c.json({ success: false, message: '請輸入 SQL 語法' }, 400);
 
-    // 1. 自動去除 AI 常見的 ```sql 與 ```
     sqlText = sqlText.replace(/```[a-zA-Z]*/g, '').replace(/```/g, '').trim();
 
-    // 2. 依照分號切分成獨立語句，去除多餘空行
     const statements = sqlText
       .split(';')
       .map(s => s.trim())
       .filter(s => s.length > 0);
 
-    if (statements.length === 0) {
-      return c.json({ success: false, message: '未偵測到有效的 SQL 指令' }, 400);
-    }
+    if (statements.length === 0) return c.json({ success: false, message: '未偵測到有效的 SQL 指令' }, 400);
 
-    // 3. 轉成 D1 batch 批次執行
     const batchList = statements.map(stmt => c.env.DB.prepare(stmt));
     await c.env.DB.batch(batchList);
 
@@ -388,17 +326,15 @@ app.post('/api/admin/raw-sql', async (c) => {
     return c.json({ success: false, message: 'SQL 執行失敗: ' + (err?.message || err) }, 500);
   }
 });
-// 切換店家供餐狀態
+
 app.post('/api/store/toggle', async (c) => {
   const { storeId, isActive } = await c.req.json();
   await c.env.DB.prepare("UPDATE stores SET is_active = ? WHERE id = ?")
     .bind(isActive ? 1 : 0, storeId)
     .run();
-
   return c.json({ success: true });
 });
 
-// 新增菜單品項
 app.post('/api/menu/add', async (c) => {
   const { storeId, itemName, price } = await c.req.json();
   if (!storeId || !itemName || price === undefined) {
@@ -411,7 +347,7 @@ app.post('/api/menu/add', async (c) => {
 
   return c.json({ success: true, message: '品項新增成功' });
 });
-// 更新店家基本資訊 (店名、電話、分類)
+
 app.post('/api/store/update', async (c) => {
   try {
     const { storeId, name, phone, category } = await c.req.json();
@@ -421,7 +357,7 @@ app.post('/api/store/update', async (c) => {
       UPDATE stores 
       SET name = ?, phone = ?, category = ? 
       WHERE id = ?
-    `).bind(name.trim(), phone || '', category || '一般', storeId).run();
+    `).bind(name.trim(), phone || '', category || '便當', storeId).run();
 
     return c.json({ success: true, message: '店家資訊更新成功！' });
   } catch (err: any) {
@@ -429,7 +365,6 @@ app.post('/api/store/update', async (c) => {
   }
 });
 
-// 更新個別菜單品項 (調價、改品名)
 app.post('/api/menu/update', async (c) => {
   try {
     const { itemId, itemName, price } = await c.req.json();
@@ -449,7 +384,6 @@ app.post('/api/menu/update', async (c) => {
   }
 });
 
-// 刪除單一餐點品項
 app.post('/api/menu/delete', async (c) => {
   try {
     const { itemId } = await c.req.json();
@@ -461,8 +395,9 @@ app.post('/api/menu/delete', async (c) => {
     return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
   }
 });
+
 // ==========================================
-// 4. 後台管理與收款 API
+// 5. 後台管理與收款 API
 // ==========================================
 app.get('/api/admin/summary', async (c) => {
   const query = `
@@ -500,13 +435,12 @@ app.post('/api/admin/order/paid', async (c) => {
     .run();
   return c.json({ success: true });
 });
-// 1. 依個人（姓名）整筆更新付款狀態與實收金額
+
 app.post('/api/admin/user/paid', async (c) => {
   try {
     const { userName, paidAmount, isPaid } = await c.req.json();
     if (!userName) return c.json({ success: false, message: '請提供姓名' }, 400);
 
-    // 一次性更新該員當前所有訂單的付款狀態與實收標記
     await c.env.DB.prepare(`
       UPDATE orders 
       SET paid_amount = ?, is_paid = ? 
@@ -519,7 +453,6 @@ app.post('/api/admin/user/paid', async (c) => {
   }
 });
 
-// 2. 刪除店家 (連帶清理該店菜單)
 app.post('/api/store/delete', async (c) => {
   try {
     const { storeId } = await c.req.json();
@@ -536,13 +469,11 @@ app.post('/api/store/delete', async (c) => {
     return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
   }
 });
-// 修改訂單內容 (換品項、備註、修改實收或應收金額)
+
 app.post('/api/admin/order/update', async (c) => {
   try {
     const { orderId, itemId, note, price } = await c.req.json();
-    if (!orderId || !itemId) {
-      return c.json({ success: false, message: '參數不完整' }, 400);
-    }
+    if (!orderId || !itemId) return c.json({ success: false, message: '參數不完整' }, 400);
 
     await c.env.DB.prepare(`
       UPDATE orders 
@@ -556,7 +487,6 @@ app.post('/api/admin/order/update', async (c) => {
   }
 });
 
-// 取消 / 刪除單筆訂單 (如果訂錯了想刪除)
 app.post('/api/admin/order/delete', async (c) => {
   try {
     const { orderId } = await c.req.json();
@@ -568,6 +498,7 @@ app.post('/api/admin/order/delete', async (c) => {
     return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
   }
 });
+
 app.post('/api/admin/orders/reset', async (c) => {
   await c.env.DB.prepare("DELETE FROM orders").run();
   return c.json({ success: true, message: '已清空本週所有點餐紀錄！' });
