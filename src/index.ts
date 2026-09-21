@@ -63,15 +63,26 @@ app.post('/api/order/submit', async (c) => {
 });
 
 // 新增人員
+// 新增人員 API
 app.post('/api/user/add', async (c) => {
-  const { name } = await c.req.json();
-  if (!name || !name.trim()) return c.json({ success: false, message: '姓名不能為空' }, 400);
-
   try {
-    await c.env.DB.prepare("INSERT INTO users (name) VALUES (?)").bind(name.trim()).run();
+    const body = await c.req.json();
+    const name = body?.name ? String(body.name).trim() : '';
+
+    if (!name) {
+      return c.json({ success: false, message: '姓名不能為空' }, 400);
+    }
+
+    // 使用 INSERT OR IGNORE 或標準 INSERT，若有 avatar_url 等欄位給預設值
+    const result = await c.env.DB.prepare(
+      "INSERT INTO users (name) VALUES (?)"
+    ).bind(name).run();
+
     return c.json({ success: true, message: '新增成功' });
   } catch (err: any) {
-    return c.json({ success: false, message: '姓名可能已存在或寫入失敗' }, 400);
+    console.error('Add user error:', err);
+    // 回傳真實的資料庫報錯，方便除錯
+    return c.json({ success: false, message: `資料庫錯誤: ${err?.message || err}` }, 400);
   }
 });
 
