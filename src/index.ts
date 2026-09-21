@@ -173,7 +173,23 @@ app.post('/api/store/add', async (c) => {
 
   return c.json({ success: true, message: '店家新增成功' });
 });
+// 執行自訂 SQL (用於 AI 批次匯入菜單)
+app.post('/api/admin/raw-sql', async (c) => {
+  try {
+    const { sql } = await c.req.json();
+    if (!sql || !sql.trim()) {
+      return c.json({ success: false, message: '請輸入 SQL 語法' }, 400);
+    }
 
+    // Cloudflare D1 提供 exec() 支援多行 SQL 同時執行
+    await c.env.DB.exec(sql.trim());
+
+    return c.json({ success: true, message: '菜單 SQL 批次執行成功！' });
+  } catch (err: any) {
+    console.error('Raw SQL execute error:', err);
+    return c.json({ success: false, message: 'SQL 執行失敗: ' + (err?.message || err) }, 500);
+  }
+});
 // 切換店家供餐狀態
 app.post('/api/store/toggle', async (c) => {
   const { storeId, isActive } = await c.req.json();
