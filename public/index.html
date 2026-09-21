@@ -3,80 +3,91 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🍱 線上便當訂餐系統</title>
+  <title>今日便當與飲料點餐</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 p-4 md:p-8">
-  <div class="max-w-2xl mx-auto space-y-6">
+  <div class="max-w-4xl mx-auto space-y-6">
 
     <!-- 頂部卡片 -->
-    <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex justify-between items-center">
+    <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
       <div>
-        <h1 class="text-2xl font-bold text-slate-800 tracking-tight">🍱 訂便當系統</h1>
-        <p class="text-xs text-slate-500 mt-1">開放點餐中</p>
+        <h1 class="text-2xl font-bold text-slate-800">🍱 今日便當 / 飲料登記</h1>
+        <p class="text-xs text-slate-500 mt-1">選定您的名字，挑選今日餐點並送出登記</p>
       </div>
       <div class="space-x-2">
-        <a href="/store_admin" class="text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition">店家菜單</a>
-        <a href="/admin" class="text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition">管理後台</a>
+        <a href="/admin" class="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3.5 py-2 rounded-xl border border-blue-200 transition">訂單核銷後台</a>
+        <a href="/store_admin" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-200 transition">店家管理</a>
       </div>
     </header>
 
-    <!-- 點餐表單 -->
+    <!-- 點餐主卡片 -->
     <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-5">
-      <h2 class="text-lg font-bold text-slate-800 border-b pb-3">點餐登記</h2>
-
-      <!-- 姓名選擇與新增按鈕 -->
+      
+      <!-- 1. 人員選擇 -->
       <div>
-        <div class="flex justify-between items-center mb-1.5">
-          <label class="text-sm font-semibold text-slate-700">點餐人員</label>
-          <button type="button" onclick="addNewUser()" class="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline">
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">1. 選擇點餐姓名</label>
+        <div class="flex gap-2">
+          <select id="userSelect" onchange="onUserSelectChange()" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 bg-slate-50 focus:bg-white text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">-- 請選擇您的名字 --</option>
+          </select>
+          <button onclick="addNewUser()" class="whitespace-nowrap bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition">
             ➕ 新增人員
           </button>
         </div>
-        <select id="userSelect" onchange="onUserChange()" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition">
-          <option value="">-- 請選擇您的名字 --</option>
-        </select>
       </div>
 
-      <!-- 餐點品項 -->
+      <!-- 2. 店家標籤同一行切換 (Tabs) -->
       <div>
-        <label class="block text-sm font-semibold text-slate-700 mb-1.5">餐點選擇</label>
-        <select id="menuSelect" onchange="onItemChange()" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition">
-          <option value="">-- 請選擇餐點品項 --</option>
-        </select>
-        <div class="flex justify-between items-center mt-2 px-1">
-          <span class="text-xs text-slate-500" id="storeInfo"></span>
-          <span class="text-sm font-bold text-blue-600" id="priceTag">$0</span>
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">2. 選擇供餐店家</label>
+        <div id="storeTabs" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <!-- 動態載入同一行的店家按鈕 -->
         </div>
       </div>
 
-      <!-- 備註 -->
+      <!-- 3. 餐點選擇 (卡片式網格，清楚好看好點) -->
       <div>
-        <label class="block text-sm font-semibold text-slate-700 mb-1.5">客製備註（如：飯少、不辣）</label>
-        <input type="text" id="orderNote" placeholder="若無特殊需求可留空" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-sm">
+        <div class="flex justify-between items-center mb-2">
+          <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">3. 點擊餐點選取</label>
+          <span id="selectedItemDisplay" class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 hidden">
+            已選取：無
+          </span>
+        </div>
+
+        <div id="menuCardsContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-72 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-200">
+          <p class="col-span-full text-slate-400 py-6 text-center text-xs">載入菜單中...</p>
+        </div>
       </div>
 
-      <!-- 提交按鈕 -->
-      <button id="submitBtn" onclick="submitOrder()" class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-semibold py-3 rounded-xl shadow-md transition duration-150">
+      <!-- 4. 備註需求 -->
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">4. 客製備註（如：微糖微冰、飯少、不辣）</label>
+        <input type="text" id="orderNote" placeholder="例如：少飯、微糖微冰、不要香菜" class="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <button onclick="submitOrder()" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow transition text-sm">
         確認送出點餐
       </button>
     </section>
 
     <!-- 今日已登記清單 -->
     <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-lg font-bold text-slate-800">今日登記清單</h2>
-        <span class="text-xs bg-slate-100 text-slate-600 font-semibold px-2.5 py-1 rounded-full" id="orderCount">共 0 份</span>
-      </div>
-      <div id="orderList" class="divide-y divide-slate-100 text-sm">
-        <p class="text-slate-400 py-4 text-center">載入中...</p>
+      <h2 class="text-lg font-bold text-slate-800 mb-4">📋 今日已登記清單</h2>
+      <div id="ordersContainer" class="overflow-x-auto text-sm">
+        <p class="text-slate-400 py-4 text-center">載入清單中...</p>
       </div>
     </section>
 
   </div>
 
   <script>
-    const STORAGE_KEY = 'bento_last_user';
+    const STORAGE_KEY = 'bento_user_name';
+    let allStores = [];
+    let allMenuItems = [];
+    let selectedStoreId = null;
+    let selectedItemId = null;
+    let selectedItemPrice = 0;
+    let selectedItemName = '';
 
     async function initPage() {
       try {
@@ -85,145 +96,197 @@
         if (!json.success) throw new Error();
 
         const { stores, menuItems, users, orders } = json.data;
+        allStores = stores.filter(s => s.is_active == 1); // 只呈現今日供餐店家
+        allMenuItems = menuItems;
 
-        // 渲染人員清單
-        const userSelect = document.getElementById('userSelect');
-        userSelect.innerHTML = '<option value="">-- 請選擇您的名字 --</option>' +
-          users.map(u => `<option value="${u.name}">${u.name}</option>`).join('');
-
-        // 自動還原上次記錄的使用者
-        const lastUser = localStorage.getItem(STORAGE_KEY);
-        if (lastUser && users.some(u => u.name === lastUser)) {
-          userSelect.value = lastUser;
-        }
-
-        // 渲染品項 (只呈現供餐中店家的品項)
-        const activeStores = stores.filter(s => s.is_active === 1);
-        const menuSelect = document.getElementById('menuSelect');
-        let menuHtml = '<option value="">-- 請選擇餐點品項 --</option>';
-
-        if (activeStores.length === 0) {
-          menuHtml += '<option disabled>⚠️ 今日尚無店家供餐中，請至後台開啟</option>';
-        } else {
-          activeStores.forEach(store => {
-            const items = menuItems.filter(m => m.store_id === store.id);
-            if (items.length > 0) {
-              menuHtml += `<optgroup label="🏬 ${store.name} (${store.category || '一般'})">`;
-              items.forEach(item => {
-                menuHtml += `<option value="${item.id}" data-price="${item.price}" data-store="${store.name}">
-                  ${item.item_name} - $${item.price}
-                </option>`;
-              });
-              menuHtml += `</optgroup>`;
-            }
-          });
-        }
-        menuSelect.innerHTML = menuHtml;
-
+        renderUsers(users);
+        renderStoreTabs();
         renderOrders(orders);
       } catch (err) {
-        document.getElementById('orderList').innerHTML = '<p class="text-red-500 py-4 text-center">讀取資料異常，請稍後再試</p>';
+        console.error(err);
       }
     }
 
-    function onUserChange() {
+    // 渲染姓名下拉選單
+    function renderUsers(users) {
+      const select = document.getElementById('userSelect');
+      const savedUser = localStorage.getItem(STORAGE_KEY);
+
+      let html = '<option value="">-- 請選擇您的名字 --</option>';
+      users.forEach(u => {
+        const isSel = (u.name === savedUser) ? 'selected' : '';
+        html += '<option value="' + u.name + '" ' + isSel + '>' + u.name + '</option>';
+      });
+      select.innerHTML = html;
+    }
+
+    function onUserSelectChange() {
       const val = document.getElementById('userSelect').value;
       if (val) localStorage.setItem(STORAGE_KEY, val);
     }
 
     async function addNewUser() {
-  const name = prompt('請輸入新同學/同事姓名：');
-  if (!name || !name.trim()) return;
+      const name = prompt('請輸入新同學/同事姓名：');
+      if (!name || !name.trim()) return;
 
-  try {
-    const res = await fetch('/api/user/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name.trim() })
-    });
-    const result = await res.json();
-    if (result.success) {
-      localStorage.setItem(STORAGE_KEY, name.trim());
-      alert(`已成功新增人員：${name.trim()}`);
-      initPage();
-    } else {
-      // 這裡會彈出真實的錯誤訊息（例如 UNIQUE constraint failed）
-      alert(result.message || '新增失敗');
-    }
-  } catch (e) {
-    alert('網路連線異常，請稍後再試');
-  }
-}
-
-    function onItemChange() {
-      const select = document.getElementById('menuSelect');
-      const opt = select.options[select.selectedIndex];
-      if (opt && opt.value) {
-        document.getElementById('priceTag').innerText = `$${opt.dataset.price}`;
-        document.getElementById('storeInfo').innerText = `供應店家：${opt.dataset.store}`;
+      const res = await fetch('/api/user/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() })
+      });
+      const result = await res.json();
+      if (result.success) {
+        localStorage.setItem(STORAGE_KEY, name.trim());
+        initPage();
       } else {
-        document.getElementById('priceTag').innerText = '$0';
-        document.getElementById('storeInfo').innerText = '';
+        alert(result.message || '新增失敗');
       }
     }
 
-    function renderOrders(orders) {
-      const container = document.getElementById('orderList');
-      document.getElementById('orderCount').innerText = `共 ${orders.length} 份`;
-
-      if (!orders || orders.length === 0) {
-        container.innerHTML = '<p class="text-slate-400 py-6 text-center">今日尚未有人登記點餐</p>';
+    // 渲染同一行店家標籤 (Tabs)
+    function renderStoreTabs() {
+      const container = document.getElementById('storeTabs');
+      if (!allStores || allStores.length === 0) {
+        container.innerHTML = '<span class="text-xs text-slate-400 py-1">目前無供餐店家</span>';
+        renderMenuCards([]);
         return;
       }
 
-      container.innerHTML = orders.map(o => `
-        <div class="py-3 flex justify-between items-center">
-          <div>
-            <div class="font-bold text-slate-800">${o.user_name}</div>
-            <div class="text-xs text-slate-500 mt-0.5">
-              <span class="text-blue-600 font-medium">[${o.store_name}]</span> ${o.item_name}
-              ${o.note ? `<span class="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 text-xs ml-1">備註: ${o.note}</span>` : ''}
-            </div>
-          </div>
-          <div class="font-bold text-slate-700">$${o.price}</div>
-        </div>
-      `).join('');
+      // 預設選取第一家店
+      if (!selectedStoreId || !allStores.some(s => s.id === selectedStoreId)) {
+        selectedStoreId = allStores[0].id;
+      }
+
+      let html = '';
+      allStores.forEach(s => {
+        const isCurrent = s.id === selectedStoreId;
+        const btnStyle = isCurrent 
+          ? 'bg-blue-600 text-white shadow-sm border-blue-600' 
+          : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200';
+
+        html += '<button onclick="switchStore(' + s.id + ')" class="px-4 py-2 rounded-xl text-xs font-bold border transition whitespace-nowrap ' + btnStyle + '">' +
+          '[' + (s.category || '便當') + '] ' + s.name +
+        '</button>';
+      });
+      container.innerHTML = html;
+
+      // 切換店家後，渲染該店菜單卡片
+      const storeItems = allMenuItems.filter(m => m.store_id === selectedStoreId);
+      renderMenuCards(storeItems);
+    }
+
+    function switchStore(storeId) {
+      selectedStoreId = storeId;
+      selectedItemId = null;
+      document.getElementById('selectedItemDisplay').classList.add('hidden');
+      renderStoreTabs();
+    }
+
+    // 渲染菜單卡片 (直接點擊選取)
+    function renderMenuCards(items) {
+      const container = document.getElementById('menuCardsContainer');
+      if (!items || items.length === 0) {
+        container.innerHTML = '<p class="col-span-full text-slate-400 py-8 text-center text-xs">該店家目前無供應品項</p>';
+        return;
+      }
+
+      let html = '';
+      items.forEach(it => {
+        const isSelected = it.id === selectedItemId;
+        const cardStyle = isSelected
+          ? 'border-blue-600 bg-blue-50/80 ring-2 ring-blue-500'
+          : 'border-slate-200 bg-white hover:border-slate-300';
+
+        html += '<div onclick="selectCardItem(' + it.id + ', \'' + it.item_name + '\', ' + it.price + ')" class="cursor-pointer p-3 rounded-xl border transition flex flex-col justify-between ' + cardStyle + '">' +
+          '<span class="text-xs font-bold text-slate-800 leading-tight mb-1">' + it.item_name + '</span>' +
+          '<span class="text-xs font-bold text-blue-600">$' + it.price + '</span>' +
+        '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    function selectCardItem(id, name, price) {
+      selectedItemId = id;
+      selectedItemPrice = price;
+      selectedItemName = name;
+
+      const display = document.getElementById('selectedItemDisplay');
+      display.innerText = '已選取：' + name + ' ($' + price + ')';
+      display.classList.remove('hidden');
+
+      // 重新渲染卡片高亮狀態
+      const storeItems = allMenuItems.filter(m => m.store_id === selectedStoreId);
+      renderMenuCards(storeItems);
     }
 
     async function submitOrder() {
       const userName = document.getElementById('userSelect').value;
-      const menuSelect = document.getElementById('menuSelect');
-      const itemId = menuSelect.value;
       const note = document.getElementById('orderNote').value.trim();
-      const opt = menuSelect.options[menuSelect.selectedIndex];
-      const price = opt ? Number(opt.dataset.price || 0) : 0;
 
-      if (!userName) return alert('請選擇點餐人員！');
-      if (!itemId) return alert('請選擇要吃的餐點！');
+      if (!userName) return alert('請先選擇您的名字！');
+      if (!selectedItemId) return alert('請點擊下方卡片選擇餐點！');
 
       const btn = document.getElementById('submitBtn');
       btn.disabled = true;
-      btn.innerText = '送出中...';
+      btn.innerText = '送出登記中...';
 
       try {
         const res = await fetch('/api/order/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userName, itemId, note, price })
+          body: JSON.stringify({
+            userName,
+            itemId: selectedItemId,
+            note,
+            price: selectedItemPrice
+          })
         });
         const result = await res.json();
         if (result.success) {
-          localStorage.setItem(STORAGE_KEY, userName);
-          alert('🎉 點餐登記成功！');
+          alert('🎉 點餐成功！');
           document.getElementById('orderNote').value = '';
+          selectedItemId = null;
+          document.getElementById('selectedItemDisplay').classList.add('hidden');
           initPage();
         } else {
-          alert('點餐失敗：' + (result.message || '未知錯誤'));
+          alert(result.message || '點餐失敗');
         }
+      } catch (err) {
+        alert('網路異常，請稍後再試');
       } finally {
         btn.disabled = false;
         btn.innerText = '確認送出點餐';
       }
+    }
+
+    function renderOrders(orders) {
+      const container = document.getElementById('ordersContainer');
+      if (!orders || orders.length === 0) {
+        container.innerHTML = '<p class="text-slate-400 py-4 text-center">今日尚無人登記點餐</p>';
+        return;
+      }
+
+      let html = '<table class="w-full text-left border-collapse">' +
+        '<thead><tr class="border-b border-slate-200 text-slate-500 text-xs">' +
+          '<th class="py-2.5 px-3">姓名</th>' +
+          '<th class="py-2.5 px-3">店家 / 品項</th>' +
+          '<th class="py-2.5 px-3">備註</th>' +
+          '<th class="py-2.5 px-3 text-right">金額</th>' +
+        '</tr></thead><tbody class="divide-y divide-slate-100">';
+
+      orders.forEach(o => {
+        html += '<tr class="hover:bg-slate-50 transition">' +
+          '<td class="py-2.5 px-3 font-bold text-slate-800">' + o.user_name + '</td>' +
+          '<td class="py-2.5 px-3">' +
+            '<span class="text-xs text-blue-600 font-semibold">[' + (o.store_name || '未指定') + ']</span> ' +
+            '<span class="font-medium text-slate-700">' + o.item_name + '</span>' +
+          '</td>' +
+          '<td class="py-2.5 px-3 text-xs text-slate-500">' + (o.note || '-') + '</td>' +
+          '<td class="py-2.5 px-3 text-right font-bold text-slate-700">$' + o.price + '</td>' +
+        '</tr>';
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
     }
 
     initPage();
