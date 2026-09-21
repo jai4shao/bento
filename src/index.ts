@@ -173,20 +173,36 @@ app.post('/api/store/add', async (c) => {
 
   return c.json({ success: true, message: '店家新增成功' });
 });
-// 執行自訂 SQL (用於 AI 批次匯入菜單)
+// 執行自訂 SQL (強化版：自動清洗 Markdown、去除空行、逐句批次執行)
 app.post('/api/admin/raw-sql', async (c) => {
   try {
-    const { sql } = await c.req.json();
-    if (!sql || !sql.trim()) {
+    const body = await c.req.json();
+    let sqlText = body?.sql ? String(body.sql) : '';
+
+    if (!sqlText.trim()) {
       return c.json({ success: false, message: '請輸入 SQL 語法' }, 400);
     }
 
-    // Cloudflare D1 提供 exec() 支援多行 SQL 同時執行
-    await c.env.DB.exec(sql.trim());
+    // 1. 自動去除 AI 常見的 ```sql 與 ```
+    sqlText = sqlText.replace(/```[a-zA-Z]*/g, '').replace(/```/g, '').trim();
 
-    return c.json({ success: true, message: '菜單 SQL 批次執行成功！' });
+    // 2. 依照分號切分成獨立語句，去除多餘空行
+    const statements = sqlText
+      .split(';')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    if (statements.length === 0) {
+      return c.json({ success: false, message: '未偵測到有效的 SQL 指令' }, 400);
+    }
+
+    // 3. 轉成 D1 batch 批次執行
+    const batchList = statements.map(stmt => c.env.DB.prepare(stmt));
+    await c.env.DB.batch(batchList);
+
+    return c.json({ success: true, message: `成功匯入！共執行了 ${statements.length} 條 SQL 語句。` });
   } catch (err: any) {
-    console.error('Raw SQL execute error:', err);
+    console.error('Raw SQL error:', err);
     return c.json({ success: false, message: 'SQL 執行失敗: ' + (err?.message || err) }, 500);
   }
 });
