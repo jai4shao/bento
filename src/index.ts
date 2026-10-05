@@ -331,23 +331,29 @@ app.post('/api/admin/raw-sql', async (c) => {
 app.post('/api/store/toggle', async (c) => {
   try {
     const { storeId, isActive, clearOrders } = await c.req.json();
-    if (!storeId) return c.json({ success: false, message: '請提供店家ID' }, 400);
+    if (storeId === undefined || storeId === null) {
+      return c.json({ success: false, message: '請提供店家ID' }, 400);
+    }
 
+    const sId = Number(storeId);
+    const activeVal = Number(isActive) === 1 ? 1 : 0;
     const db = c.env.DB;
     const statements: any[] = [];
 
     // 1. 切換店家供餐狀態
     statements.push(
-      db.prepare("UPDATE stores SET is_active = ? WHERE id = ?").bind(isActive ? 1 : 0, storeId)
+      db.prepare("UPDATE stores SET is_active = ? WHERE id = ?").bind(activeVal, sId)
     );
 
     // 2. 如果選擇設為休息且需要清空該店當前點餐
-    if (!isActive && clearOrders) {
+    if (activeVal === 0 && clearOrders) {
       statements.push(
         db.prepare(`
           DELETE FROM orders 
-          WHERE item_id IN (SELECT id FROM menu_items WHERE store_id = ?)
-        `).bind(storeId)
+          WHERE CAST(item_id AS INTEGER) IN (
+            SELECT CAST(id AS INTEGER) FROM menu_items WHERE store_id = ?
+          )
+        `).bind(sId)
       );
     }
 
@@ -355,9 +361,12 @@ app.post('/api/store/toggle', async (c) => {
 
     return c.json({ 
       success: true, 
-      message: (!isActive && clearOrders) ? '店家已設為休息，且該店所有已點餐點已全數清空！' : '店家狀態更新成功！' 
+      message: (activeVal === 0 && clearOrders) 
+        ? '店家已設為休息，且該店所有已點餐點已全數清空！' 
+        : '店家供餐狀態已更新！' 
     });
   } catch (err: any) {
+    console.error('Toggle store error:', err);
     return c.json({ success: false, message: err?.message || '操作失敗' }, 500);
   }
 });
