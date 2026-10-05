@@ -304,15 +304,28 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
     }
 
     async function clearAllActiveStores() {
-      if (!confirm('⚠️ 確定要將今天所有供餐中的店家全部設為「休息中」嗎？')) return;
       const activeStores = globalStores.filter(s => s.is_active == 1);
+      if (activeStores.length === 0) return alert('目前沒有任何店家正在供餐中！');
+
+      const shouldClearOrders = confirm(
+        "⚠️ 確定要將今天所有「供餐中」的店家全部設為休息嗎？\n\n" +
+        "【確定】：設為休息，並連帶「清空所有店家的已點餐點」！\n" +
+        "【取消】：放棄操作。"
+      );
+      if (!shouldClearOrders) return;
+
       for (const s of activeStores) {
         await fetch('/api/store/toggle', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ storeId: s.id, isActive: 0 })
+          body: JSON.stringify({ 
+            storeId: Number(s.id), 
+            isActive: 0, 
+            clearOrders: true 
+          })
         });
       }
+      alert('已將所有店家設為休息，並清空點餐紀錄！');
       loadStores();
     }
 
@@ -507,24 +520,27 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       let clearOrders = false;
 
       // 如果是要切換為「休息中」
-      if (!isActive) {
-        // 先向使用者確認是否要連帶清空該店已點的餐點
-        const confirmResult = confirm(
+      if (Number(isActive) === 0) {
+        const choice = confirm(
           "⚠️ 確定要將此店家設為「休息中」嗎？\n\n" +
-          "【確定】：設為休息，並「自動清空」所有人點該店的餐點（適合臨時不開/不外送）。\n" +
-          "【取消】：放棄操作。"
+          "【確定】：設為休息，並「一併清空」所有人點該店的餐點（適合臨時不接單/不外送）。\n" +
+          "【取消】：放棄本次操作。"
         );
-        if (!confirmResult) return;
+        if (!choice) return;
 
-        // 第二層詢問：是否需要連帶清空該店的訂單
-        clearOrders = confirm("👉 是否一併清空目前該店家「已登記的點餐紀錄」？\n（按「確定」清空點餐；按「取消」僅關閉供餐但不刪除現有点餐）");
+        // 確認要休息，接著問是否保留現有餐點
+        clearOrders = true; // 預設直接清空該店餐點
       }
 
       try {
         const res = await fetch('/api/store/toggle', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ storeId, isActive, clearOrders })
+          body: JSON.stringify({ 
+            storeId: Number(storeId), 
+            isActive: Number(isActive), 
+            clearOrders: clearOrders 
+          })
         });
         const json = await res.json();
         if (json.success) {
