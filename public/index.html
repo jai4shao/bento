@@ -5,6 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>今日便當與飲料點餐</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+  /* 確保全域字體以使用者裝置設定為基準 */
+  html {
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* 防止過小字體：強制微型文字與標籤最低不小於 0.875rem */
+  .text-xs,
+  [class*="text-[10px]"],
+  [class*="text-[11px]"] {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+  }
+
+  /* 提升輸入框與按鈕在手機上的易讀性與點擊手感 */
+  button, select, input {
+    font-size: 1rem !important;
+  }
+</style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 p-4 md:p-8">
   <div class="max-w-4xl mx-auto space-y-6">
