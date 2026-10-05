@@ -504,12 +504,38 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
     }
 
     async function toggleStore(storeId, isActive) {
-      await fetch('/api/store/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storeId, isActive })
-      });
-      loadStores();
+      let clearOrders = false;
+
+      // 如果是要切換為「休息中」
+      if (!isActive) {
+        // 先向使用者確認是否要連帶清空該店已點的餐點
+        const confirmResult = confirm(
+          "⚠️ 確定要將此店家設為「休息中」嗎？\n\n" +
+          "【確定】：設為休息，並「自動清空」所有人點該店的餐點（適合臨時不開/不外送）。\n" +
+          "【取消】：放棄操作。"
+        );
+        if (!confirmResult) return;
+
+        // 第二層詢問：是否需要連帶清空該店的訂單
+        clearOrders = confirm("👉 是否一併清空目前該店家「已登記的點餐紀錄」？\n（按「確定」清空點餐；按「取消」僅關閉供餐但不刪除現有点餐）");
+      }
+
+      try {
+        const res = await fetch('/api/store/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ storeId, isActive, clearOrders })
+        });
+        const json = await res.json();
+        if (json.success) {
+          if (json.message) alert(json.message);
+          loadStores();
+        } else {
+          alert(json.message || '操作失敗');
+        }
+      } catch (err) {
+        alert('網路異常，請稍後再試');
+      }
     }
 
     async function deleteStore(storeId, storeName) {
