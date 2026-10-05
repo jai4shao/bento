@@ -6,7 +6,7 @@
 
 ## 🚀 一鍵部署至 Cloudflare Workers
 
-點擊下方按鈕即可一鍵複製本專案並部署至您的 Cloudflare 帳號：
+點擊下方按鈕即可一鍵複製本專案並全自動部署至您的 Cloudflare 帳號：
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jai4shao/bento)
 
@@ -14,17 +14,19 @@
 
 ## 💡 快速啟用指南 (僅需 1 分鐘)
 
-### 事前準備（若已有帳號可直接略過）
-1. <a href="https://github.com/signup" target="_blank">註冊 GitHub 帳號</a>（用於存放您的系統專案複本）。
-2. <a href="https://dash.cloudflare.com/sign-up" target="_blank">註冊 Cloudflare 帳號</a>（免費方案即可完整運作）。
+### 事前準備（若已有帳號可直接跳過）
+1. <a href="https://github.com/signup" target="_blank">註冊 GitHub 帳號 ↗</a>（用於自動存放系統專案複本）
+2. <a href="https://dash.cloudflare.com/sign-up" target="_blank">註冊 Cloudflare 帳號 ↗</a>（提供免費伺服器與資料庫）
 
 ### 部署步驟
 1. 點擊上方的 **「Deploy to Cloudflare Workers」** 藍色按鈕。
-2. 授權 GitHub 並選擇您的 Cloudflare 帳號，點擊確認部署。
-   > 系統會全自動為您建立 D1 資料庫並完成設定。
-3. 部署完成後，點擊網址（`https://xxx.workers.dev`）即可開始使用！
-   > 💡 **小提醒（若首次建立 Worker）**：  
-   > 若畫面未出現可點擊的網址，請點Workers & Pages 進該 Worker 專案 ➔ 切換到 **Settings** ➔ **Domains**），將 **`Worker URL`** 網址按鈕切換為「啟用（Enabled）」即可。
+2. **授權與確認**：
+   - 登入並授權 GitHub 帳號（系統會自動將專案複製一份到您的 GitHub）。
+   - 選擇您的 Cloudflare 帳號，點擊確認部署。
+   - 系統會全自動為您建立 D1 資料庫、綁定資源並開啟專屬公開網址。
+3. **完成啟用**：
+   - 部署完成後，直接點擊畫面顯示的網址（`https://xxx.workers.dev`）即可立即使用！
+   - 首次載入會全自動完成資料庫初始化，完全不需手動下任何 SQL 指令。
 
 ---
 
@@ -32,7 +34,7 @@
 
 - **前台登記頁面 (`/`)**：挑選姓名、瀏覽當日供餐店家菜單、支援多份點餐與規格備註；僅能修改/取消自己的點餐紀錄。
 - **店家與菜單管理 (`/store_admin`)**：
-  - **本日供餐快捷總覽**：隨時檢視與切換當班供餐店家，支援一鍵清空重選。
+  - **本日供餐快捷總覽**：隨時檢視與切換當班供餐店家，支援一鍵清空重選；切換為休息時自動清空該店已點餐點。
   - **三大核心分類**：
     - `便當`：正餐加總叫餐。
     - `飲料`：自動帶入固定糖量與冰量規格。
