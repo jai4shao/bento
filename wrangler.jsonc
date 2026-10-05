@@ -11,8 +11,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "bento_db"
-      // ⚠️ 不要寫 database_id！讓 Cloudflare 一鍵部署時自動配發並綁定
+      "database_name": "bento_db",
+      "database_id": "bento_db"
     }
   ]
 }
