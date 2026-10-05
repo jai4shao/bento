@@ -4,14 +4,6 @@
 
 ---
 
-## 🚀 一鍵部署至 Cloudflare Workers
-
-點擊下方按鈕即可一鍵複製本專案並全自動部署至您的 Cloudflare 帳號：
-
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jai4shao/bento)
-
----
-
 ## 💡 快速啟用指南 (僅需 1 分鐘)
 
 ### 事前準備（若已有帳號可直接跳過）
@@ -22,7 +14,10 @@
    - *(先完成此一步驟，稍後的一鍵部署才能順暢自動複製專案，避免權限同步延遲)*。
 
 ### 一鍵部署步驟
-1. 點擊上方的 **「Deploy to Cloudflare Workers」** 藍色按鈕。
+1. 完成上述準備後，點擊下方 **「Deploy to Cloudflare Workers」** 藍色按鈕：
+
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jai4shao/bento)
+
 2. 選擇您的 Cloudflare 帳號，點擊確認部署。
    - 系統將全自動複製專案、建立 D1 資料庫並配置專屬網址。
 3. 部署完成後，點擊畫面顯示的網址（`https://xxx.workers.dev`）即可立即使用！
