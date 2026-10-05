@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "bento-system",
+  "name": "bento",
   "main": "src/index.ts",
   "compatibility_date": "2024-09-23",
   "compatibility_flags": ["nodejs_compat"],
@@ -12,7 +12,7 @@
     {
       "binding": "DB",
       "database_name": "bento_db",
-      "database_id": "bento_db"
+      "database_id": "3c2a9460-2ebb-4d9e-b8c0-3678b2f43c41"
     }
   ]
 }
