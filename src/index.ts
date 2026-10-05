@@ -327,33 +327,32 @@ app.post('/api/admin/raw-sql', async (c) => {
   }
 });
 
-// 切換店家供餐狀態 (支援連帶清空該店家當前所有點餐)
+// 切換店家供餐狀態：一旦設為休息 (isActive == 0)，無條件自動刪除該店所有已被點的餐點！
 app.post('/api/store/toggle', async (c) => {
   try {
-    const { storeId, isActive, clearOrders } = await c.req.json();
-    if (storeId === undefined || storeId === null) {
-      return c.json({ success: false, message: '請提供店家ID' }, 400);
+    const body = await c.req.json();
+    const storeId = Number(body.storeId);
+    const isActive = Number(body.isActive);
+
+    if (isNaN(storeId)) {
+      return c.json({ success: false, message: '店家ID格式錯誤' }, 400);
     }
 
-    const sId = Number(storeId);
-    const activeVal = Number(isActive) === 1 ? 1 : 0;
     const db = c.env.DB;
     const statements: any[] = [];
 
-    // 1. 切換店家供餐狀態
+    // 1. 更新店家狀態
     statements.push(
-      db.prepare("UPDATE stores SET is_active = ? WHERE id = ?").bind(activeVal, sId)
+      db.prepare("UPDATE stores SET is_active = ? WHERE id = ?").bind(isActive, storeId)
     );
 
-    // 2. 如果選擇設為休息且需要清空該店當前點餐
-    if (activeVal === 0 && clearOrders) {
+    // 2. 只要是切換為休息 (isActive === 0)，自動清空該店家的所有點餐紀錄
+    if (isActive === 0) {
       statements.push(
         db.prepare(`
           DELETE FROM orders 
-          WHERE CAST(item_id AS INTEGER) IN (
-            SELECT CAST(id AS INTEGER) FROM menu_items WHERE store_id = ?
-          )
-        `).bind(sId)
+          WHERE item_id IN (SELECT id FROM menu_items WHERE store_id = ?)
+        `).bind(storeId)
       );
     }
 
@@ -361,9 +360,7 @@ app.post('/api/store/toggle', async (c) => {
 
     return c.json({ 
       success: true, 
-      message: (activeVal === 0 && clearOrders) 
-        ? '店家已設為休息，且該店所有已點餐點已全數清空！' 
-        : '店家供餐狀態已更新！' 
+      message: isActive === 0 ? '店家已設為休息，且該店所有已被點的餐點已自動清空！' : '店家已設為今日供餐！' 
     });
   } catch (err: any) {
     console.error('Toggle store error:', err);
