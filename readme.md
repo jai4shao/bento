@@ -15,18 +15,18 @@
 ## 💡 快速啟用指南 (僅需 1 分鐘)
 
 ### 事前準備（若已有帳號可直接跳過）
-1. <a href="https://github.com/signup" target="_blank">註冊 GitHub 帳號 ↗</a>（用於自動存放系統專案複本）
-2. <a href="https://dash.cloudflare.com/sign-up" target="_blank">註冊 Cloudflare 帳號 ↗</a>（提供免費伺服器與資料庫）
+1. <a href="https://github.com/signup" target="_blank">註冊 GitHub 帳號 ↗</a>
+2. <a href="https://dash.cloudflare.com/sign-up" target="_blank">註冊 Cloudflare 帳號 ↗</a>
+3. ⚡ **關鍵防呆小步驟（僅首次使用需要）**：
+   - 登入 Cloudflare 後，先點擊左側 **Workers & Pages** ➔ 右上角 **Create** ➔ 點一下 **Connect to Git** 授權綁定您的 GitHub 帳號（綁定完成後關閉該頁即可，不需要建立專案）。
+   - *(先完成此一步驟，稍後的一鍵部署才能順暢自動複製專案，避免權限同步延遲)*。
 
-### 部署步驟
+### 一鍵部署步驟
 1. 點擊上方的 **「Deploy to Cloudflare Workers」** 藍色按鈕。
-2. **授權與確認**：
-   - 登入並授權 GitHub 帳號（系統會自動將專案複製一份到您的 GitHub）。
-   - 選擇您的 Cloudflare 帳號，點擊確認部署。
-   - 系統會全自動為您建立 D1 資料庫、綁定資源並開啟專屬公開網址。
-3. **完成啟用**：
-   - 部署完成後，直接點擊畫面顯示的網址（`https://xxx.workers.dev`）即可立即使用！
-   - 首次載入會全自動完成資料庫初始化，完全不需手動下任何 SQL 指令。
+2. 選擇您的 Cloudflare 帳號，點擊確認部署。
+   - 系統將全自動複製專案、建立 D1 資料庫並配置專屬網址。
+3. 部署完成後，點擊畫面顯示的網址（`https://xxx.workers.dev`）即可立即使用！
+   - 首次開啟會自動完成資料庫初始化，完全不需任何指令。
 
 ---
 
