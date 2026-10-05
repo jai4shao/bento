@@ -327,72 +327,38 @@ app.post('/api/admin/raw-sql', async (c) => {
   }
 });
 
+// 切換店家供餐狀態 (支援連帶清空該店家當前所有點餐)
 app.post('/api/store/toggle', async (c) => {
-  const { storeId, isActive } = await c.req.json();
-  await c.env.DB.prepare("UPDATE stores SET is_active = ? WHERE id = ?")
-    .bind(isActive ? 1 : 0, storeId)
-    .run();
-  return c.json({ success: true });
-});
-
-app.post('/api/menu/add', async (c) => {
-  const { storeId, itemName, price } = await c.req.json();
-  if (!storeId || !itemName || price === undefined) {
-    return c.json({ success: false, message: '請提供完整品項資訊' }, 400);
-  }
-
-  await c.env.DB.prepare("INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES (?, ?, ?, 1)")
-    .bind(storeId, itemName.trim(), Number(price))
-    .run();
-
-  return c.json({ success: true, message: '品項新增成功' });
-});
-
-app.post('/api/store/update', async (c) => {
   try {
-    const { storeId, name, phone, category } = await c.req.json();
-    if (!storeId || !name) return c.json({ success: false, message: '店家名稱不能為空' }, 400);
+    const { storeId, isActive, clearOrders } = await c.req.json();
+    if (!storeId) return c.json({ success: false, message: '請提供店家ID' }, 400);
 
-    await c.env.DB.prepare(`
-      UPDATE stores 
-      SET name = ?, phone = ?, category = ? 
-      WHERE id = ?
-    `).bind(name.trim(), phone || '', category || '便當', storeId).run();
+    const db = c.env.DB;
+    const statements: any[] = [];
 
-    return c.json({ success: true, message: '店家資訊更新成功！' });
-  } catch (err: any) {
-    return c.json({ success: false, message: err?.message || '更新失敗' }, 500);
-  }
-});
+    // 1. 切換店家供餐狀態
+    statements.push(
+      db.prepare("UPDATE stores SET is_active = ? WHERE id = ?").bind(isActive ? 1 : 0, storeId)
+    );
 
-app.post('/api/menu/update', async (c) => {
-  try {
-    const { itemId, itemName, price } = await c.req.json();
-    if (!itemId || !itemName || price === undefined) {
-      return c.json({ success: false, message: '品項名稱與價格為必填' }, 400);
+    // 2. 如果選擇設為休息且需要清空該店當前點餐
+    if (!isActive && clearOrders) {
+      statements.push(
+        db.prepare(`
+          DELETE FROM orders 
+          WHERE item_id IN (SELECT id FROM menu_items WHERE store_id = ?)
+        `).bind(storeId)
+      );
     }
 
-    await c.env.DB.prepare(`
-      UPDATE menu_items 
-      SET item_name = ?, price = ? 
-      WHERE id = ?
-    `).bind(itemName.trim(), Number(price), itemId).run();
+    await db.batch(statements);
 
-    return c.json({ success: true, message: '品項更新成功！' });
+    return c.json({ 
+      success: true, 
+      message: (!isActive && clearOrders) ? '店家已設為休息，且該店所有已點餐點已全數清空！' : '店家狀態更新成功！' 
+    });
   } catch (err: any) {
-    return c.json({ success: false, message: err?.message || '更新失敗' }, 500);
-  }
-});
-
-app.post('/api/menu/delete', async (c) => {
-  try {
-    const { itemId } = await c.req.json();
-    if (!itemId) return c.json({ success: false, message: '請提供品項ID' }, 400);
-
-    await c.env.DB.prepare("DELETE FROM menu_items WHERE id = ?").bind(itemId).run();
-    return c.json({ success: true, message: '品項已刪除！' });
-  } catch (err: any) {
-    return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
+    return c.json({ success: false, message: err?.message || '操作失敗' }, 500);
   }
 });
 
