@@ -5,6 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>便當系統 - 管理後台與核銷</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 確保全域字體以使用者裝置設定為基準 */
+    html {
+      font-size: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    /* 防止過小字體：強制微型文字與標籤最低不小於 0.875rem */
+    .text-xs,
+    [class*="text-[10px]"],
+    [class*="text-[11px]"] {
+      font-size: 0.875rem !important;
+      line-height: 1.25rem !important;
+    }
+
+    /* 提升輸入框、按鈕與選單在手機上的易讀性與點擊手感 */
+    button, select, input {
+      font-size: 1rem !important;
+    }
+  </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 p-3 sm:p-6 md:p-8">
   <div class="max-w-4xl mx-auto space-y-5">
@@ -460,26 +480,21 @@
       renderUserCards(rawOrders);
     }
 
-    // 實收金額輸入邏輯 (金額剛好才自動打勾；拿大鈔先不打勾)
+    // 實收金額輸入邏輯
     async function onUserPaidAmountInput(userName, totalPrice, val) {
       const paid = Number(val || 0);
 
-      // 規則 1：金額剛好相等，代表當場付清整數，自動打勾結清
       if (paid === totalPrice) {
         await updateOrderPaidStatus(userName, totalPrice, 1);
-      } 
-      // 規則 2：拿大鈔 (paid > totalPrice)，暫不打勾，記錄實收供介面提示「請找 $X」
-      else if (paid > totalPrice) {
+      } else if (paid > totalPrice) {
         await updateOrderPaidStatus(userName, paid, 0);
-      } 
-      // 規則 3：清空或少給，設為未結清
-      else {
+      } else {
         await updateOrderPaidStatus(userName, paid, 0);
       }
       loadAdminData();
     }
 
-    // 點擊「找完錢，按此結清」按鈕：將金額校正為應收金額並打勾
+    // 點擊「找完錢，按此結清」按鈕
     async function confirmChangeAndPay(userName, totalPrice) {
       await updateOrderPaidStatus(userName, totalPrice, 1);
       loadAdminData();
