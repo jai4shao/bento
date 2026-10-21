@@ -315,6 +315,33 @@ app.post('/api/store/add', async (c) => {
   return c.json({ success: true, message: '店家新增成功' });
 });
 
+// 🌟 修改店家資訊 API (解決 404 問題)
+app.post('/api/store/update', async (c) => {
+  try {
+    const { storeId, name, phone, address, category } = await c.req.json();
+    if (!storeId || !name) {
+      return c.json({ success: false, message: '缺少店家ID或名稱' }, 400);
+    }
+
+    await c.env.DB.prepare(`
+      UPDATE stores 
+      SET name = ?, phone = ?, address = ?, category = ?
+      WHERE id = ?
+    `).bind(
+      String(name).trim(), 
+      phone || '', 
+      address || '', 
+      category || '便當', 
+      Number(storeId)
+    ).run();
+
+    return c.json({ success: true, message: '店家資訊修改成功！' });
+  } catch (err: any) {
+    console.error('Update store error:', err);
+    return c.json({ success: false, message: err?.message || '修改失敗' }, 500);
+  }
+});
+
 // 新增菜單品項
 app.post('/api/menu/add', async (c) => {
   try {
