@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>便當系統 - 管理後台與核銷</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入截圖函式庫 -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
-    /* 確保全域字體以使用者裝置設定為基準 */
     html {
       font-size: 100%;
       -webkit-text-size-adjust: 100%;
     }
 
-    /* 防止過小字體：強制微型文字與標籤最低不小於 0.875rem */
     .text-xs,
     [class*="text-[10px]"],
     [class*="text-[11px]"] {
@@ -20,7 +20,6 @@
       line-height: 1.25rem !important;
     }
 
-    /* 提升輸入框、按鈕與選單在手機上的易讀性與點擊手感 */
     button, select, input {
       font-size: 1rem !important;
     }
@@ -37,6 +36,7 @@
           <span id="lockStatusBadge" class="text-xs font-bold px-2.5 py-1 rounded-full border">載入中...</span>
         </div>
         <p class="text-xs text-slate-500 mt-1">電話下單後請截止點餐；收款支援手機卡片對帳與大鈔找零校正</p>
+        <p class="text-xs text-slate-500 mt-1">送暨南大學，綜合大樓B棟</p>
       </div>
       <div class="flex items-center flex-wrap gap-2">
         <button id="toggleLockBtn" onclick="toggleOrderLock()" class="text-xs font-bold px-3.5 py-2 rounded-xl border shadow-sm transition">
@@ -53,7 +53,7 @@
       <div class="flex justify-between items-center border-b pb-3">
         <div>
           <h2 class="text-base sm:text-lg font-bold text-slate-800">📊 店家叫餐報單統計</h2>
-          <p class="text-xs text-slate-500 mt-0.5">依店家分卡展示，合併叫餐自動歸納為分袋清單</p>
+          <p class="text-xs text-slate-500 mt-0.5">依店家分卡展示，可一鍵生成隱藏姓名的點餐圖卡分享至 LINE</p>
         </div>
         <span class="text-xs bg-blue-50 text-blue-700 font-bold px-3 py-1 rounded-full border border-blue-100" id="totalSummaryAmount">全單總額：$0</span>
       </div>
@@ -67,7 +67,7 @@
       <div id="bundledStoresContainer" class="space-y-3 pt-2"></div>
     </section>
 
-    <!-- 2. 個人對帳核銷區塊 (手機卡片化排版) -->
+    <!-- 2. 個人對帳核銷區塊 -->
     <section class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 space-y-4">
       <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-1 border-b pb-3">
         <div>
@@ -122,13 +122,33 @@
     </div>
   </div>
 
+  <!-- 📸 截圖分享預覽視窗 Modal -->
+  <div id="imagePreviewModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-5 space-y-4 text-center">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="text-base font-bold text-slate-800">📸 叫餐分享圖片已生成</h3>
+        <button onclick="closeImagePreviewModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+      <p class="text-xs text-slate-500">手機端可<b>長按圖片</b>直接「複製」或「儲存」轉傳至 LINE！</p>
+      <div id="imagePreviewContainer" class="max-h-[60vh] overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50"></div>
+      <div class="flex justify-center space-x-2 pt-2 border-t">
+        <a id="downloadImageBtn" href="#" download="叫餐明細.png" class="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">💾 下載圖片</a>
+        <button onclick="closeImagePreviewModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl border border-slate-200 transition">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 隱藏渲染容器 (供 html2canvas 繪製圖片用) -->
+  <div id="captureArea" style="position:fixed; left:-9999px; top:-9999px; width:480px; background:#ffffff; color:#333333; padding:24px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-sizing:border-box;"></div>
+
   <script>
     let rawOrders = [];
     let availableMenuItems = [];
     let allStoresList = [];
+    let summaryData = [];
     let activeEditingOrderId = null;
     let isCurrentlyLocked = false;
-    let expandedUsers = {}; // 追蹤哪些卡片展開明細
+    let expandedUsers = {};
 
     async function loadAdminData() {
       try {
@@ -145,11 +165,12 @@
 
         availableMenuItems = (initJson.data && initJson.data.menuItems) ? initJson.data.menuItems : [];
         allStoresList = (initJson.data && initJson.data.stores) ? initJson.data.stores : [];
+        summaryData = sumJson.data || [];
         rawOrders = ordJson.data || [];
         isCurrentlyLocked = statusJson.isLocked || false;
 
         renderLockStatus();
-        renderStoreCallCards(sumJson.data || []);
+        renderStoreCallCards(summaryData);
         renderBundledStoreOrders(rawOrders);
         renderUserCards(rawOrders);
       } catch (e) {
@@ -232,6 +253,7 @@
           storeGroups[storeName] = {
             storeName: storeName,
             phone: stMeta ? stMeta.phone : '',
+            address: stMeta ? stMeta.address : '',
             category: stMeta ? stMeta.category : '便當',
             items: [],
             totalQty: 0,
@@ -267,6 +289,9 @@
               <div class="flex items-center space-x-2 text-xs">
                 <span class="font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md">共 ${group.totalQty} 份</span>
                 <span class="font-bold text-blue-700 bg-blue-100/70 border border-blue-200 px-2 py-0.5 rounded-md">小計：$${group.totalAmount}</span>
+                <button onclick="captureStoreSummaryImage('${group.storeName.replace(/'/g, "\\'")}')" class="font-bold text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-lg transition shadow-2xs">
+                  📸 分享圖卡
+                </button>
               </div>
             </div>
 
@@ -284,7 +309,7 @@
                   <tr class="hover:bg-white/60 transition">
                     <td class="py-1.5 px-1.5 font-bold text-slate-800">${it.item_name}</td>
                     <td class="py-1.5 px-1.5 text-slate-600 font-medium">${it.note || '-'}</td>
-                    <td class="py-1.5 px-1.5 text-center font-bold text-slate-800 text-sm">${it.qty}</td>                     <td class="py-1.5 px-1.5 text-right font-bold text-slate-700">$${it.subtotal}</td>
+                    <td class="py-1.5 px-1.5 text-center font-bold text-slate-800 text-sm">${it.qty}</td> <td class="py-1.5 px-1.5 text-right font-bold text-slate-700">$${it.subtotal}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -331,6 +356,9 @@
               <div class="flex items-center space-x-2 text-xs">
                 <span class="font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">共 ${Object.keys(userBags).length} 袋</span>
                 <span class="font-bold text-amber-900 bg-amber-200/80 border border-amber-300 px-2 py-0.5 rounded-md">店家合計：$${storeTotal}</span>
+                <button onclick="captureBundledStoreImage('${s.name.replace(/'/g, "\\'")}')" class="font-bold text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 border border-amber-400 px-2.5 py-1 rounded-lg transition shadow-2xs">
+                  📸 分享分袋圖卡
+                </button>
               </div>
             </div>
 
@@ -382,7 +410,6 @@
 
       const userList = Object.values(usersMap);
 
-      // 計算收款統計
       let totalPaidCount = 0;
       userList.forEach(u => { if (u.isAllPaid) totalPaidCount++; });
       document.getElementById('userCollectProgress').innerHTML = `
@@ -390,13 +417,12 @@
       `;
 
       let html = '';
-      userList.forEach((u, idx) => {
+      userList.forEach((u) => {
         const isExpanded = !!expandedUsers[u.userName];
         const isPaid = u.isAllPaid;
         const paidAmount = u.paidAmount;
         const change = (paidAmount > 0) ? (paidAmount - u.totalPrice) : 0;
 
-        // 卡片外框與狀態標籤
         let statusBadge = '';
         let cardBorder = isPaid ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200 bg-white';
 
@@ -411,7 +437,6 @@
         html += `
           <div class="border rounded-2xl p-3.5 shadow-2xs transition space-y-3 ${cardBorder}">
             
-            <!-- 卡片上層：點擊展開明細 -->
             <div class="flex items-center justify-between cursor-pointer select-none" onclick="toggleUserExpand('${u.userName}')">
               <div class="flex items-center space-x-2.5">
                 <span class="text-sm sm:text-base font-bold text-slate-800">${u.userName}</span>
@@ -424,7 +449,6 @@
               </div>
             </div>
 
-            <!-- 卡片中層：收錢與找零操作區 (專為手機觸控優化) -->
             <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
               <div class="flex items-center space-x-2">
                 <span class="text-slate-500 font-semibold">實收：$</span>
@@ -433,12 +457,11 @@
                   class="w-20 text-center font-bold text-sm border border-slate-300 rounded-xl py-1 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
                 
                 ${!isPaid && paidAmount > u.totalPrice ? `
-                  <button onclick="confirmChangeAndPay('${u.userName}', ${u.totalPrice})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded-lg text-xs shadow-xs transition animate-pulse">                     ✓ 找完 $${change}，按此結清
+                  <button onclick="confirmChangeAndPay('${u.userName}', ${u.totalPrice})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded-lg text-xs shadow-xs transition animate-pulse"> ✓ 找完 $${change}，按此結清
                   </button>
                 ` : ''}
               </div>
 
-              <!-- 勾選結清按鈕 -->
               <label class="inline-flex items-center space-x-1.5 cursor-pointer select-none bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1 rounded-xl transition">
                 <input type="checkbox" onchange="toggleUserPaidCheckbox('${u.userName}', ${u.totalPrice}, this.checked)" ${isPaid ? 'checked' : ''}
                   class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
@@ -446,7 +469,6 @@
               </label>
             </div>
 
-            <!-- 卡片下層：點購品項折疊抽屜 -->
             ${isExpanded ? `
               <div class="pt-2 border-t border-slate-100 space-y-1.5">
                 <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">點購內容明細</div>
@@ -474,46 +496,183 @@
       container.innerHTML = html;
     }
 
-    // 展開 / 收合人員明細
     function toggleUserExpand(userName) {
       expandedUsers[userName] = !expandedUsers[userName];
       renderUserCards(rawOrders);
     }
 
-    // 實收金額輸入邏輯
     async function onUserPaidAmountInput(userName, totalPrice, val) {
       const paid = Number(val || 0);
-
       if (paid === totalPrice) {
         await updateOrderPaidStatus(userName, totalPrice, 1);
-      } else if (paid > totalPrice) {
-        await updateOrderPaidStatus(userName, paid, 0);
       } else {
         await updateOrderPaidStatus(userName, paid, 0);
       }
       loadAdminData();
     }
 
-    // 點擊「找完錢，按此結清」按鈕
     async function confirmChangeAndPay(userName, totalPrice) {
       await updateOrderPaidStatus(userName, totalPrice, 1);
       loadAdminData();
     }
 
-    // 點擊結清勾選框
     async function toggleUserPaidCheckbox(userName, totalPrice, isChecked) {
       const targetAmount = isChecked ? totalPrice : 0;
       await updateOrderPaidStatus(userName, targetAmount, isChecked ? 1 : 0);
       loadAdminData();
     }
 
-    // 呼叫後端依個人整批寫入
     async function updateOrderPaidStatus(userName, paidAmount, isPaid) {
       await fetch('/api/admin/user/paid', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userName, paidAmount, isPaid })
       });
+    }
+
+    // ==========================================
+    // 📸 產生截圖分享核心邏輯 (純品項與備註，隱藏人名)
+    // ==========================================
+    async function captureStoreSummaryImage(storeName) {
+      const stMeta = allStoresList.find(s => s.name === storeName) || {};
+      const storeItems = summaryData.filter(s => s.store_name === storeName);
+
+      if (storeItems.length === 0) {
+        alert('該店家尚無點餐資料！');
+        return;
+      }
+
+      let totalQty = 0;
+      let totalAmount = 0;
+      let rowsHtml = '';
+
+      storeItems.forEach(it => {
+        totalQty += Number(it.qty || 0);
+        totalAmount += Number(it.subtotal || 0);
+        rowsHtml += `
+          <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 10px 6px; font-weight:600; color:#1e293b; font-size:14px;">
+              ${escapeHtml(it.item_name)}
+              ${it.note ? `<div style="font-size:12px; color:#d97706; margin-top:2px;">↳ 備註：${escapeHtml(it.note)}</div>` : ''}
+            </td>
+            <td style="padding: 10px 6px; text-align:center; font-weight:bold; color:#0f172a; font-size:15px;">${it.qty}</td>
+            <td style="padding: 10px 6px; text-align:right; font-weight:bold; color:#334155; font-size:14px;">$${it.subtotal}</td>
+          </tr>
+        `;
+      });
+
+      const captureHtml = `
+        <div style="border-bottom: 2px dashed #cbd5e1; padding-bottom: 14px; margin-bottom: 14px;">
+          <div style="font-size: 20px; font-weight: 800; color: #0f172a;">🍱 叫餐清單 - ${escapeHtml(storeName)}</div>
+          ${stMeta.phone ? `<div style="font-size: 13px; color: #64748b; margin-top: 4px;">📞 電話：${escapeHtml(stMeta.phone)}</div>` : ''}
+          ${stMeta.address ? `<div style="font-size: 12px; color: #ea580c; margin-top: 2px;">📍 備註：${escapeHtml(stMeta.address)}</div>` : ''}
+          <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">🕒 產出時間：${new Date().toLocaleString('zh-TW', { hour12: false })}</div>
+        </div>
+        <table style="width:100%; border-collapse:collapse; margin-bottom:14px;">
+          <thead>
+            <tr style="background:#f8fafc; border-bottom:1px solid #cbd5e1; text-align:left; font-size:13px; color:#64748b;">
+              <th style="padding:8px 6px;">品項與需求</th>
+              <th style="padding:8px 6px; text-align:center; width:60px;">數量</th>
+              <th style="padding:8px 6px; text-align:right; width:70px;">小計</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <div style="border-top:2px solid #0f172a; padding-top:10px; display:flex; justify-content:space-between; align-items:baseline;">
+          <span style="font-size:15px; font-weight:bold; color:#334155;">共計餐點：${totalQty} 份</span>
+          <span style="font-size:18px; font-weight:bold; color:#e11d48;">總金額：$${totalAmount}</span>
+        </div>
+      `;
+
+      await renderAndShowCanvas(captureHtml, `${storeName}_叫餐明細`);
+    }
+
+    // 📸 分袋清單分享圖卡 (袋號取代個人姓名)
+    async function captureBundledStoreImage(storeName) {
+      const stMeta = allStoresList.find(s => s.name === storeName) || {};
+      const storeOrders = rawOrders.filter(o => o.store_name === storeName);
+
+      if (storeOrders.length === 0) {
+        alert('該店家尚無點餐資料！');
+        return;
+      }
+
+      let storeTotal = 0;
+      const userBags = {};
+      storeOrders.forEach(o => {
+        storeTotal += Number(o.price || 0);
+        if (!userBags[o.user_name]) {
+          userBags[o.user_name] = { items: {}, bagTotal: 0, count: 0 };
+        }
+        userBags[o.user_name].bagTotal += Number(o.price || 0);
+        userBags[o.user_name].count += 1;
+        const key = o.item_name + (o.note ? ` (${o.note})` : '');
+        userBags[o.user_name].items[key] = (userBags[o.user_name].items[key] || 0) + 1;
+      });
+
+      let bagsHtml = '';
+      Object.values(userBags).forEach((bag, idx) => {
+        const itemListStr = Object.entries(bag.items).map(([name, qty]) => `${escapeHtml(name)} × ${qty}`).join('<br>');
+        bagsHtml += `
+          <div style="border: 1px solid #fed7aa; background:#fffbeb; border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size:13px;">
+            <div style="display:flex; justify-content:space-between; font-weight:bold; color:#9a3412; border-bottom:1px solid #fde68a; padding-bottom:4px; margin-bottom:6px;">
+              <span>🛍️ 袋子 #${idx + 1} (${bag.count} 份)</span>
+              <span>$${bag.bagTotal}</span>
+            </div>
+            <div style="color:#475569; line-height:1.4;">${itemListStr}</div>
+          </div>
+        `;
+      });
+
+      const captureHtml = `
+        <div style="border-bottom: 2px dashed #cbd5e1; padding-bottom: 14px; margin-bottom: 14px;">
+          <div style="font-size: 20px; font-weight: 800; color: #0f172a;">🛍️ 分袋叫餐明細 - ${escapeHtml(storeName)}</div>
+          ${stMeta.phone ? `<div style="font-size: 13px; color: #64748b; margin-top: 4px;">📞 電話：${escapeHtml(stMeta.phone)}</div>` : ''}
+          <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">🕒 產出時間：${new Date().toLocaleString('zh-TW', { hour12: false })}</div>
+        </div>
+        <div style="margin-bottom:14px;">${bagsHtml}</div>
+        <div style="border-top:2px solid #0f172a; padding-top:10px; display:flex; justify-content:space-between; align-items:baseline;">
+          <span style="font-size:15px; font-weight:bold; color:#334155;">共計袋數：${Object.keys(userBags).length} 袋</span>
+          <span style="font-size:18px; font-weight:bold; color:#e11d48;">總金額：$${storeTotal}</span>
+        </div>
+      `;
+
+      await renderAndShowCanvas(captureHtml, `${storeName}_分袋叫餐明細`);
+    }
+
+    async function renderAndShowCanvas(htmlContent, filenamePrefix) {
+      const captureEl = document.getElementById('captureArea');
+      captureEl.innerHTML = htmlContent;
+
+      try {
+        const canvas = await html2canvas(captureEl, {
+          scale: 2,
+          backgroundColor: '#ffffff'
+        });
+
+        const dataUrl = canvas.toDataURL('image/png');
+        const container = document.getElementById('imagePreviewContainer');
+        container.innerHTML = `<img src="${dataUrl}" class="max-w-full h-auto mx-auto rounded-lg shadow-sm border border-slate-200">`;
+
+        const downloadBtn = document.getElementById('downloadImageBtn');
+        downloadBtn.href = dataUrl;
+        downloadBtn.download = `${filenamePrefix}_${new Date().toISOString().slice(0, 10)}.png`;
+
+        document.getElementById('imagePreviewModal').classList.remove('hidden');
+      } catch (err) {
+        alert('截圖生成失敗：' + err.message);
+      }
+    }
+
+    function closeImagePreviewModal() {
+      document.getElementById('imagePreviewModal').classList.add('hidden');
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return String(text).replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      })[m]);
     }
 
     // 修改彈窗邏輯
