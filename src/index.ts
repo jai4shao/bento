@@ -9,12 +9,13 @@ const app = new Hono<{ Bindings: Bindings }>();
 
 // ==========================================
 // 🛡️ 自動初始化資料表 (Auto-Migration 防呆中介層)
-// 確保任何新人一鍵部署後，第一次打開網頁就自動建好所有資料表
 // ==========================================
 let isTablesReady = false;
 
 async function ensureTables(db: D1Database) {
-  if (isTablesReady) return; // 記憶體旗標快取，避免每次請求都重複建表
+  if (isTablesReady) return;
+
+  // 1. 建立完整結構 (補齊 address 欄位)
   await db.batch([
     db.prepare(`CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,6 +27,7 @@ async function ensureTables(db: D1Database) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       phone TEXT DEFAULT '',
+      address TEXT DEFAULT '',
       category TEXT DEFAULT '便當',
       is_active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -51,11 +53,23 @@ async function ensureTables(db: D1Database) {
     db.prepare(`CREATE TABLE IF NOT EXISTS system_settings (
       setting_key TEXT PRIMARY KEY,
       setting_value TEXT NOT NULL
-    )`),
-    db.prepare(`INSERT OR IGNORE INTO stores (id, name, phone, category, is_active) VALUES (1, '美味便當店', '04-7123456', '便當', 1)`),
-    db.prepare(`INSERT OR IGNORE INTO menu_items (id, store_id, item_name, price, is_available) VALUES (1, 1, '招牌排骨飯', 100, 1)`),
-    db.prepare(`INSERT OR IGNORE INTO menu_items (id, store_id, item_name, price, is_available) VALUES (2, 1, '香酥雞腿飯', 110, 1)`)
+    )`)
   ]);
+
+  // 2. 只有在全新空白資料庫時，才寫入一次初始範例 (避免刪除後又自動長出來)
+  try {
+    const storeCount: any = await db.prepare("SELECT COUNT(*) AS count FROM stores").first();
+    if (storeCount && storeCount.count === 0) {
+      await db.batch([
+        db.prepare(`INSERT INTO stores (id, name, phone, address, category, is_active) VALUES (1, '美味便當店', '04-7123456', '滿500外送', '便當', 1)`),
+        db.prepare(`INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES (1, '招牌排骨飯', 100, 1)`),
+        db.prepare(`INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES (1, '香酥雞腿飯', 110, 1)`)
+      ]);
+    }
+  } catch (e) {
+    console.error('Initial mock data insert skipped:', e);
+  }
+
   isTablesReady = true;
 }
 
@@ -80,7 +94,7 @@ app.get('/admin', (c) => c.env.ASSETS.fetch(new Request(new URL('/admin.html', c
 app.get('/store_admin', (c) => c.env.ASSETS.fetch(new Request(new URL('/store_admin.html', c.req.url))));
 
 // ==========================================
-// 🛠️ 資料庫檢查與一鍵修復端點 (除錯備用)
+// 🛠️ 資料庫檢查與一鍵修復端點
 // ==========================================
 app.get('/api/debug-db', async (c) => {
   try {
@@ -288,17 +302,65 @@ app.post('/api/order/self-update', async (c) => {
 });
 
 // ==========================================
-// 4. 店家與菜單管理 API
+// 4. 店家與菜單管理 API (完整補齊 CRUD)
 // ==========================================
 app.post('/api/store/add', async (c) => {
-  const { name, phone, category } = await c.req.json();
+  const { name, phone, address, category } = await c.req.json();
   if (!name) return c.json({ success: false, message: '請輸入店家名稱' }, 400);
 
-  await c.env.DB.prepare("INSERT INTO stores (name, phone, category, is_active) VALUES (?, ?, ?, 1)")
-    .bind(name.trim(), phone || '', category || '便當')
+  await c.env.DB.prepare("INSERT INTO stores (name, phone, address, category, is_active) VALUES (?, ?, ?, ?, 1)")
+    .bind(name.trim(), phone || '', address || '', category || '便當')
     .run();
 
   return c.json({ success: true, message: '店家新增成功' });
+});
+
+// 新增菜單品項
+app.post('/api/menu/add', async (c) => {
+  try {
+    const { storeId, itemName, price } = await c.req.json();
+    if (!storeId || !itemName) return c.json({ success: false, message: '店家ID與品項名稱不能為空' }, 400);
+
+    await c.env.DB.prepare(`
+      INSERT INTO menu_items (store_id, item_name, price, is_available)
+      VALUES (?, ?, ?, 1)
+    `).bind(Number(storeId), String(itemName).trim(), Number(price || 0)).run();
+
+    return c.json({ success: true, message: '品項新增成功！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '品項新增失敗' }, 500);
+  }
+});
+
+// 修改菜單品項
+app.post('/api/menu/update', async (c) => {
+  try {
+    const { itemId, itemName, price, isAvailable } = await c.req.json();
+    if (!itemId) return c.json({ success: false, message: '缺少品項ID' }, 400);
+
+    await c.env.DB.prepare(`
+      UPDATE menu_items 
+      SET item_name = ?, price = ?, is_available = ?
+      WHERE id = ?
+    `).bind(String(itemName).trim(), Number(price || 0), isAvailable !== undefined ? Number(isAvailable) : 1, Number(itemId)).run();
+
+    return c.json({ success: true, message: '品項更新成功！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '品項更新失敗' }, 500);
+  }
+});
+
+// 刪除菜單品項 (修正 404)
+app.post('/api/menu/delete', async (c) => {
+  try {
+    const { itemId } = await c.req.json();
+    if (!itemId) return c.json({ success: false, message: '缺少品項ID' }, 400);
+
+    await c.env.DB.prepare("DELETE FROM menu_items WHERE id = ?").bind(Number(itemId)).run();
+    return c.json({ success: true, message: '品項已成功刪除！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
+  }
 });
 
 app.post('/api/admin/raw-sql', async (c) => {
@@ -327,7 +389,7 @@ app.post('/api/admin/raw-sql', async (c) => {
   }
 });
 
-// 切換店家供餐狀態：一旦設為休息 (isActive == 0)，無條件自動刪除該店所有已被點的餐點！
+// 切換店家供餐狀態
 app.post('/api/store/toggle', async (c) => {
   try {
     const body = await c.req.json();
@@ -341,12 +403,10 @@ app.post('/api/store/toggle', async (c) => {
     const db = c.env.DB;
     const statements: any[] = [];
 
-    // 1. 更新店家狀態
     statements.push(
       db.prepare("UPDATE stores SET is_active = ? WHERE id = ?").bind(isActive, storeId)
     );
 
-    // 2. 只要是切換為休息 (isActive === 0)，自動清空該店家的所有點餐紀錄
     if (isActive === 0) {
       statements.push(
         db.prepare(`
