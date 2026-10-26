@@ -6,25 +6,61 @@
   <title>今日便當與飲料點餐</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-  /* 確保全域字體以使用者裝置設定為基準 */
-  html {
-    font-size: 100%;
-    -webkit-text-size-adjust: 100%;
-  }
+    /* 確保全域字體以使用者裝置設定為基準 */
+    html {
+      font-size: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
 
-  /* 防止過小字體：強制微型文字與標籤最低不小於 0.875rem */
-  .text-xs,
-  [class*="text-[10px]"],
-  [class*="text-[11px]"] {
-    font-size: 0.875rem !important;
-    line-height: 1.25rem !important;
-  }
+    /* 防止過小字體：強制微型文字與標籤最低不小於 0.875rem */
+    .text-xs,
+    [class*="text-[10px]"],
+    [class*="text-[11px]"] {
+      font-size: 0.875rem !important;
+      line-height: 1.25rem !important;
+    }
 
-  /* 提升輸入框與按鈕在手機上的易讀性與點擊手感 */
-  button, select, input {
-    font-size: 1rem !important;
-  }
-</style>
+    /* 提升輸入框與按鈕在手機上的易讀性與點擊手感 */
+    button, select, input {
+      font-size: 1rem !important;
+    }
+
+    .intro-footer-nav {
+      margin-top: 32px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .btn-intro-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #ffffff;
+      color: #44403c;
+      border: 1.5px solid #ebdccb;
+      padding: 10px 22px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.95rem;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+      transition: all 0.2s ease;
+    }
+
+    .btn-intro-link:hover {
+      background: #fdfaf5;
+      border-color: #2563eb;
+      color: #2563eb;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.12);
+    }
+
+    .btn-intro-link:active {
+      transform: scale(0.97);
+    }
+  </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 p-4 md:p-8">
   <div class="max-w-4xl mx-auto space-y-6">
@@ -32,7 +68,13 @@
     <!-- 頂部卡片 -->
     <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
       <div>
-        <h1 class="text-2xl font-bold text-slate-800">🍱 今日便當 / 飲料登記</h1>
+        <div class="flex items-center flex-wrap gap-2.5">
+          <h1 class="text-2xl font-bold text-slate-800">🍱 今日便當 / 飲料登記</h1>
+          <!-- 🚦 點餐開放/截止紅綠燈狀態 -->
+          <span id="orderStatusBadge" class="text-xs font-bold px-2.5 py-1 rounded-full border bg-slate-100 text-slate-500 border-slate-200">
+            載入狀態中...
+          </span>
+        </div>
         <p class="text-xs text-slate-500 mt-1">選定姓名後挑選餐點，您可自由修改或取消自己的登記紀錄</p>
       </div>
       <div class="space-x-2">
@@ -205,12 +247,22 @@
     let selectedSugar = '';
     let selectedIce = '';
     let cart = [];
+    let isLocked = false; // 紀錄目前點餐是否被後台截止
 
     async function initPage() {
       try {
-        const res = await fetch('/api/init-order-page');
-        const json = await res.json();
+        const [initRes, statusRes] = await Promise.all([
+          fetch('/api/init-order-page'),
+          fetch('/api/system/status')
+        ]);
+
+        const json = await initRes.json();
+        const statusJson = await statusRes.json();
+
         if (!json.success) throw new Error();
+
+        isLocked = statusJson.isLocked || false;
+        renderLockStatus(isLocked);
 
         const { stores, menuItems, users, orders } = json.data;
         allStores = stores.filter(s => s.is_active == 1);
@@ -225,6 +277,32 @@
       }
     }
 
+    // 🚦 渲染開放/截止紅綠燈狀態
+    function renderLockStatus(locked) {
+      const badge = document.getElementById('orderStatusBadge');
+      const submitBtn = document.getElementById('submitBtn');
+
+      if (locked) {
+        badge.innerHTML = '🔴 今日已截止';
+        badge.className = 'text-xs font-bold px-2.5 py-1 rounded-full border bg-red-50 text-red-700 border-red-200';
+        
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerText = '🔒 今日已截止點餐 (已向店家下單)';
+          submitBtn.className = 'w-full bg-slate-300 text-slate-500 font-bold py-3 rounded-xl cursor-not-allowed text-sm transition';
+        }
+      } else {
+        badge.innerHTML = '🟢 開放登記中';
+        badge.className = 'text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200';
+        
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = '確認送出全部點餐';
+          submitBtn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow transition text-sm';
+        }
+      }
+    }
+
     function renderUsers(users) {
       const select = document.getElementById('userSelect');
       const savedUser = localStorage.getItem(STORAGE_KEY);
@@ -236,7 +314,6 @@
       select.innerHTML = html;
     }
 
-    // 換人時，重新渲染清單以動態切換誰有權限看到「修改/刪除」按鈕
     function onUserSelectChange() {
       const val = document.getElementById('userSelect').value;
       if (val) localStorage.setItem(STORAGE_KEY, val);
@@ -283,6 +360,11 @@
     }
 
     function openMenuModal(storeId) {
+      if (isLocked) {
+        alert('今日已截止訂餐，無法挑選餐點！');
+        return;
+      }
+
       const store = allStores.find(s => s.id === storeId);
       if (!store) return;
 
@@ -488,6 +570,8 @@
     }
 
     async function submitBatchOrder() {
+      if (isLocked) return alert('今日已截止訂餐，無法送出！');
+
       const userName = document.getElementById('userSelect').value;
       if (!userName) return alert('請先選擇您的名字！');
       if (cart.length === 0) return alert('點餐清單是空的，請先挑選餐點！');
@@ -514,12 +598,13 @@
       } catch (err) {
         alert('網路異常，請稍後再試');
       } finally {
-        btn.disabled = false;
-        btn.innerText = '確認送出全部點餐';
+        if (!isLocked) {
+          btn.disabled = false;
+          btn.innerText = '確認送出全部點餐';
+        }
       }
     }
 
-// 渲染今日點餐清單（以個人為卡片，自動彙總同品項數量）
     function renderOrders(orders) {
       const container = document.getElementById('ordersContainer');
       if (!orders || orders.length === 0) {
@@ -527,11 +612,9 @@
         return;
       }
 
-      // 取得當前選取的使用者 (正確對應 userSelect)
       const userSelectEl = document.getElementById('userSelect');
       const currentUser = userSelectEl ? userSelectEl.value.trim() : '';
 
-      // 1. 依照「點餐人」進行分組
       const userGroup = {};
       orders.forEach(order => {
         if (!userGroup[order.user_name]) {
@@ -542,7 +625,6 @@
         }
         userGroup[order.user_name].totalAmount += Number(order.price || 0);
 
-        // 聚合 key：同店家 + 同品項 + 同備註 + 同單價 聚合為一組
         const key = `${order.store_name}_${order.item_name}_${order.price}_${order.note || ''}`;
         if (!userGroup[order.user_name].itemsMap[key]) {
           userGroup[order.user_name].itemsMap[key] = {
@@ -551,25 +633,21 @@
             price: Number(order.price || 0),
             note: order.note || '',
             count: 0,
-            orderIds: [] // 記錄該組所有的 order.id，方便減1或全刪
+            orderIds: []
           };
         }
         userGroup[order.user_name].itemsMap[key].count += 1;
         userGroup[order.user_name].itemsMap[key].orderIds.push(order.id);
       });
 
-      // 2. 產出卡片 HTML
       let html = '';
       for (const [userName, data] of Object.entries(userGroup)) {
         const isMe = (userName === currentUser && currentUser !== '');
         const items = Object.values(data.itemsMap);
-
-        // 摘要文字（未展開時顯示簡述）
         const summaryText = items.map(it => `${it.itemName} ×${it.count}`).join('、 ');
 
         html += `
           <div class="border rounded-2xl transition duration-200 ${isMe ? 'border-blue-400 bg-blue-50/20 shadow-sm' : 'border-slate-200 bg-white'} overflow-hidden mb-3">
-            <!-- 卡片標頭：點擊展開 / 收合 -->
             <div class="p-4 flex justify-between items-center cursor-pointer select-none" onclick="toggleUserCard('${userName}')">
               <div class="flex items-center space-x-2">
                 <span class="font-bold text-slate-800 text-sm flex items-center">
@@ -584,7 +662,6 @@
               </div>
             </div>
 
-            <!-- 卡片展開內容：明細清單 (本人預設展開，其他人預設收合) -->
             <div id="details-${userName}" class="${isMe ? 'block' : 'hidden'} px-4 pb-3 border-t border-slate-100 bg-slate-50/50">
               <div class="divide-y divide-slate-100">
                 ${items.map(item => `
@@ -596,7 +673,6 @@
                       <span class="text-slate-400 ml-2 font-medium">($${item.price * item.count})</span>
                     </div>
 
-                    <!-- 操作按鈕：僅本人可操作 -->
                     ${isMe ? `
                       <div class="flex items-center space-x-1.5 shrink-0">
                         <button onclick="reduceOrderItem(${item.orderIds[item.orderIds.length - 1]})" class="px-2 py-1 bg-white hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-semibold transition" title="退訂 1 份">
@@ -618,7 +694,6 @@
       container.innerHTML = html;
     }
 
-    // 展開/收合個人卡片
     function toggleUserCard(userName) {
       const details = document.getElementById(`details-${userName}`);
       const arrow = document.getElementById(`arrow-${userName}`);
@@ -632,8 +707,9 @@
       }
     }
 
-    // 退訂單一筆 (減 1) - 使用後端支援的 self-delete API
     async function reduceOrderItem(orderId) {
+      if (isLocked) return alert('今日已截止訂餐，無法取消或修改！');
+
       const currentUser = document.getElementById('userSelect').value;
       if (!currentUser) return alert('請先確認您目前選取的身分！');
       if (!confirm('確定要退訂 1 份嗎？')) return;
@@ -646,7 +722,7 @@
         });
         const json = await res.json();
         if (json.success) {
-          initPage(); // 重新整理頁面
+          initPage();
         } else {
           alert(json.message || '退訂失敗');
         }
@@ -655,8 +731,9 @@
       }
     }
 
-    // 整組品項全部退訂
     async function deleteEntireGroup(orderIds) {
+      if (isLocked) return alert('今日已截止訂餐，無法取消或修改！');
+
       const currentUser = document.getElementById('userSelect').value;
       if (!currentUser) return alert('請先確認您目前選取的身分！');
       if (!confirm(`確定要全部取消這 ${orderIds.length} 份餐點嗎？`)) return;
@@ -669,107 +746,24 @@
             body: JSON.stringify({ orderId: id, userName: currentUser })
           });
         }
-        initPage(); // 重新整理頁面
+        initPage();
       } catch (e) {
         alert('網路異常，請稍後再試');
-      }
-    }
-    // 前台自我取消 (刪除)
-    async function selfDeleteOrder(orderId) {
-      const currentUser = document.getElementById('userSelect').value;
-      if (!currentUser) return alert('請先確認您目前選取的身分！');
-
-      if (!confirm('確定要取消刪除這份點餐嗎？')) return;
-
-      const res = await fetch('/api/order/self-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, userName: currentUser })
-      });
-      const json = await res.json();
-      if (json.success) {
-        initPage();
-      } else {
-        alert(json.message || '刪除失敗');
-      }
-    }
-
-// 打開自我修改彈窗 (只列出「該餐點所屬店家」的菜單品項)
-    function openSelfEditModal(orderId) {
-      if (isLocked) return alert('今日已截止訂餐，無法修改！');
-      const order = allOrders.find(o => o.id === orderId);
-      if (!order) return;
-
-      activeSelfEditingOrderId = orderId;
-      document.getElementById('selfEditPrice').value = order.price;
-      document.getElementById('selfEditNote').value = order.note || '';
-
-      // 1. 找出這道餐點原本屬於哪間店
-      const originalItem = allMenuItems.find(m => m.id === order.item_id);
-      const targetStoreId = originalItem ? originalItem.store_id : null;
-
-      // 2. 只過濾出同一間店家的菜單品項
-      let sameStoreItems = allMenuItems;
-      if (targetStoreId) {
-        sameStoreItems = allMenuItems.filter(m => m.store_id === targetStoreId);
-      }
-
-      const select = document.getElementById('selfEditItemSelect');
-      let html = '';
-      sameStoreItems.forEach(m => {
-        const isSel = (m.id === order.item_id) ? 'selected' : '';
-        html += '<option value="' + m.id + '" data-price="' + m.price + '" ' + isSel + '>' +
-          '[' + m.store_name + '] ' + m.item_name + ' - $' + m.price +
-        '</option>';
-      });
-      select.innerHTML = html;
-
-      document.getElementById('selfEditModal').classList.remove('hidden');
-    }
-
-    function onSelfEditItemChange() {
-      const select = document.getElementById('selfEditItemSelect');
-      const opt = select.options[select.selectedIndex];
-      if (opt && opt.dataset.price) {
-        document.getElementById('selfEditPrice').value = opt.dataset.price;
-      }
-    }
-
-    function closeSelfEditModal() {
-      document.getElementById('selfEditModal').classList.add('hidden');
-      activeSelfEditingOrderId = null;
-    }
-
-    // 儲存自我修改
-    async function saveSelfEdit() {
-      const currentUser = document.getElementById('userSelect').value;
-      if (!currentUser || !activeSelfEditingOrderId) return;
-
-      const itemId = Number(document.getElementById('selfEditItemSelect').value);
-      const price = Number(document.getElementById('selfEditPrice').value);
-      const note = document.getElementById('selfEditNote').value.trim();
-
-      const res = await fetch('/api/order/self-update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: activeSelfEditingOrderId,
-          userName: currentUser,
-          itemId,
-          price,
-          note
-        })
-      });
-      const json = await res.json();
-      if (json.success) {
-        closeSelfEditModal();
-        initPage();
-      } else {
-        alert(json.message || '修改失敗');
       }
     }
 
     initPage();
   </script>
+
+  <!-- 底部同學自介按鈕 -->
+  <div class="intro-footer-nav">
+    <a href="https://594126010.xyz/bento/users.php" target="_blank" rel="noopener noreferrer" class="btn-intro-link">
+      <span class="icon">👋</span>
+      <span>同學自介名冊</span>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    </a>
+  </div>
 </body>
 </html>
