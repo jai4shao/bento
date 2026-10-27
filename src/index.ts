@@ -416,25 +416,26 @@ app.post('/api/admin/raw-sql', async (c) => {
   }
 });
 
-// 切換店家供餐狀態
 app.post('/api/store/toggle', async (c) => {
   try {
     const body = await c.req.json();
     const storeId = Number(body.storeId);
-    const isActive = Number(body.isActive);
+    const status = Number(body.status); // 1: 供餐, 2: 截止, 0: 休息
 
-    if (isNaN(storeId)) {
-      return c.json({ success: false, message: '店家ID格式錯誤' }, 400);
+    if (isNaN(storeId) || ![0, 1, 2].includes(status)) {
+      return c.json({ success: false, message: '狀態參數錯誤' }, 400);
     }
 
     const db = c.env.DB;
     const statements: any[] = [];
 
+    // 1. 更新店家狀態
     statements.push(
-      db.prepare("UPDATE stores SET is_active = ? WHERE id = ?").bind(isActive, storeId)
+      db.prepare("UPDATE stores SET is_active = ? WHERE id = ?").bind(status, storeId)
     );
 
-    if (isActive === 0) {
+    // 2. 只有切換為「休息 (0)」才清空該店家訂單；切換為「截止 (2)」時完整保留！
+    if (status === 0) {
       statements.push(
         db.prepare(`
           DELETE FROM orders 
@@ -445,10 +446,13 @@ app.post('/api/store/toggle', async (c) => {
 
     await db.batch(statements);
 
-    return c.json({ 
-      success: true, 
-      message: isActive === 0 ? '店家已設為休息，且該店所有已被點的餐點已自動清空！' : '店家已設為今日供餐！' 
-    });
+    const msgMap: Record<number, string> = {
+      1: '店家已恢復供餐！',
+      2: '店家已截止收單！（已保留現有點餐明細）',
+      0: '店家已設為休息，且該店所有點餐已自動清空！'
+    };
+
+    return c.json({ success: true, message: msgMap[status] });
   } catch (err: any) {
     console.error('Toggle store error:', err);
     return c.json({ success: false, message: err?.message || '操作失敗' }, 500);
