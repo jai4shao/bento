@@ -247,7 +247,7 @@
     let selectedSugar = '';
     let selectedIce = '';
     let cart = [];
-    let isLocked = false; // 紀錄目前點餐是否被後台截止
+    let isLocked = false;
 
     async function initPage() {
       try {
@@ -265,8 +265,9 @@
         renderLockStatus(isLocked);
 
         const { stores, menuItems, users, orders } = json.data;
-        allStores = stores.filter(s => s.is_active == 1);
-        allMenuItems = menuItems;
+        // 🌟 保留 1(供餐) 與 2(提早截止)，只過濾掉 0(公休休息)
+        allStores = (stores || []).filter(s => s.is_active != 0);
+        allMenuItems = menuItems || [];
         allOrders = orders || [];
 
         renderUsers(users);
@@ -338,6 +339,7 @@
       }
     }
 
+    // 🌟 渲染店家按鈕 (支援個別店家提早截止狀態)
     function renderStoreButtons() {
       const container = document.getElementById('storeButtonsContainer');
       if (!allStores || allStores.length === 0) {
@@ -350,23 +352,43 @@
         const isDrink = s.category && (s.category.includes('飲料') || s.category.includes('茶'));
         const icon = isDrink ? '🥤' : '🍱';
 
-        html += '<button onclick="openMenuModal(' + s.id + ')" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-400 shadow-sm transition">' +
-          '<span>' + icon + '</span>' +
-          '<span class="text-slate-800">' + s.name + '</span>' +
-          '<span class="text-[10px] text-blue-600 font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">' + (s.category || '一般') + '</span>' +
-        '</button>';
+        if (s.is_active == 1) {
+          // 🟢 供餐中：正常可點擊按鈕
+          html += `
+            <button onclick="openMenuModal(${s.id})" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-400 shadow-sm transition">
+              <span>${icon}</span>
+              <span class="text-slate-800">${s.name}</span>
+              <span class="text-[10px] text-blue-600 font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">${s.category || '一般'}</span>
+            </button>
+          `;
+        } else if (s.is_active == 2) {
+          // 🔒 個別提前截止：按鈕變灰、店名加刪除線、點擊跳警示
+          html += `
+            <button onclick="alert('【${s.name}】已提早截止收單囉！無法再加點或更換。')" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed opacity-80 transition">
+              <span>🔒</span>
+              <span class="line-through">${s.name}</span>
+              <span class="text-[10px] bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded border border-red-200">已截止</span>
+            </button>
+          `;
+        }
       });
       container.innerHTML = html;
     }
 
     function openMenuModal(storeId) {
       if (isLocked) {
-        alert('今日已截止訂餐，無法挑選餐點！');
+        alert('今日全域已截止訂餐，無法挑選餐點！');
         return;
       }
 
       const store = allStores.find(s => s.id === storeId);
       if (!store) return;
+
+      // 個別店家截止防呆
+      if (store.is_active == 2) {
+        alert(`【${store.name}】已提早截止收單囉！無法再點餐。`);
+        return;
+      }
 
       activeModalStoreId = storeId;
       document.getElementById('modalStoreTitle').innerText = store.name;
@@ -570,7 +592,7 @@
     }
 
     async function submitBatchOrder() {
-      if (isLocked) return alert('今日已截止訂餐，無法送出！');
+      if (isLocked) return alert('今日全域已截止訂餐，無法送出！');
 
       const userName = document.getElementById('userSelect').value;
       if (!userName) return alert('請先選擇您的名字！');
@@ -708,7 +730,7 @@
     }
 
     async function reduceOrderItem(orderId) {
-      if (isLocked) return alert('今日已截止訂餐，無法取消或修改！');
+      if (isLocked) return alert('今日全域已截止訂餐，無法取消或修改！');
 
       const currentUser = document.getElementById('userSelect').value;
       if (!currentUser) return alert('請先確認您目前選取的身分！');
@@ -732,7 +754,7 @@
     }
 
     async function deleteEntireGroup(orderIds) {
-      if (isLocked) return alert('今日已截止訂餐，無法取消或修改！');
+      if (isLocked) return alert('今日全域已截止訂餐，無法取消或修改！');
 
       const currentUser = document.getElementById('userSelect').value;
       if (!currentUser) return alert('請先確認您目前選取的身分！');
