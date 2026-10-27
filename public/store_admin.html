@@ -32,7 +32,7 @@
     <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex justify-between items-center">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">🏬 店家與菜單管理</h1>
-        <p class="text-xs text-slate-500 mt-1">三班制快速分流管理：頂部即時掌握本日供餐，分類分頁點選與專屬 AI Prompt</p>
+        <p class="text-xs text-slate-500 mt-1">三班制快速分流管理：頂部即時掌握本日供餐，支援獨立提前截止收單與休息清空</p>
       </div>
       <div class="space-x-2">
         <a href="/" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-200 transition">返回前台</a>
@@ -47,7 +47,7 @@
           <h2 class="text-base font-bold flex items-center gap-2">
             <span>📌</span> 本日供餐快捷總覽 (三班點餐清單)
           </h2>
-          <p class="text-xs text-slate-400 mt-0.5">點擊下方店家的「設為今日供餐」，即會自動歸納至此區塊</p>
+          <p class="text-xs text-slate-400 mt-0.5">狀態包含「🟢供餐中」與「🔒已截止(保留訂單)」，點擊可快捷切換</p>
         </div>
         <button onclick="clearAllActiveStores()" class="text-xs font-semibold text-red-300 hover:text-white bg-red-950/50 hover:bg-red-900/80 border border-red-700/50 px-3 py-1.5 rounded-xl transition">
           🔄 一鍵清空所有供餐狀態
@@ -90,7 +90,7 @@
       </div>
     </section>
 
-    <!-- 🤖 AI 菜單快速匯入助手 (專屬 3 個分類 Prompt 按鈕) -->
+    <!-- 🤖 AI 菜單快速匯入助手 -->
     <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
       <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b pb-3">
         <div>
@@ -100,7 +100,6 @@
           <p class="text-xs text-slate-500 mt-0.5">點擊對應類別按鈕複製 Prompt，給 AI 讀圖產生 SQL 後貼入匯入</p>
         </div>
 
-        <!-- 3 個專屬 Prompt 複製按鈕 -->
         <div class="flex flex-wrap gap-2">
           <button onclick="copyPrompt('bento')" class="inline-flex items-center text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-2 rounded-xl transition">
             🍱 複製便當 Prompt
@@ -127,9 +126,10 @@
     <!-- 手動新增合作店家 -->
     <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
       <h2 class="text-sm font-bold text-slate-700 border-b pb-2">手動新增合作店家</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <input type="text" id="newStoreName" placeholder="店家名稱（如：大同滷味）" class="border border-slate-300 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
         <input type="text" id="newStorePhone" placeholder="電話（選填）" class="border border-slate-300 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+        <input type="text" id="newStoreAddress" placeholder="外送備註 / 地址（選填）" class="border border-slate-300 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
         <select id="newStoreCategory" class="border border-slate-300 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white font-semibold text-slate-700">
           <option value="便當">🍱 便當 (一般正餐)</option>
           <option value="飲料">🥤 飲料 (甜度冰量規格)</option>
@@ -182,6 +182,10 @@
           <input type="text" id="modalStorePhone" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <div>
+          <label class="block font-semibold text-slate-700 mb-1">外送備註 / 地址</label>
+          <input type="text" id="modalStoreAddress" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
           <label class="block font-semibold text-slate-700 mb-1">系統核心分類</label>
           <select id="modalStoreCategory" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white font-semibold text-slate-700">
             <option value="便當">🍱 便當 (一般正餐)</option>
@@ -202,7 +206,7 @@
     let globalMenuItems = [];
     let activeCategoryTab = 'all';
     let activeEditingStoreId = null;
-    let expandedStores = {}; // 記錄已展開菜單的店家 ID
+    let expandedStores = {};
 
     const PROMPTS = {
       bento: `請閱讀以下便當/正餐菜單圖片或文字清單，轉換成符合 Cloudflare D1 (SQLite) 的 SQL 插入語句。
@@ -210,7 +214,7 @@
 1. 只需要提供純 SQL 代碼，放在 \`\`\`sql 區塊內即可，不要包含其他解釋。
 2. 自動提取店家名稱與電話。店家分類 category 固定為 '便當'。
 3. 語法格式：
-INSERT INTO stores (name, phone, category, is_active) VALUES ('店家名稱', '電話', '便當', 1);
+INSERT INTO stores (name, phone, address, category, is_active) VALUES ('店家名稱', '電話', '外送備註', '便當', 1);
 
 INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
 ((SELECT id FROM stores WHERE name = '店家名稱' ORDER BY id DESC LIMIT 1), '品項1', 100, 1),
@@ -222,7 +226,7 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
 2. 自動提取店家名稱與電話。店家分類 category 固定為 '飲料'。
 3. 若飲料有區分大杯 (L) 或中杯 (M)，請務必在品項名稱後明確標註，例如：'珍珠奶茶 (L)', 60 或 '翡翠綠茶 (M)', 35。
 4. 語法格式：
-INSERT INTO stores (name, phone, category, is_active) VALUES ('店家名稱', '電話', '飲料', 1);
+INSERT INTO stores (name, phone, address, category, is_active) VALUES ('店家名稱', '電話', '外送備註', '飲料', 1);
 
 INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
 ((SELECT id FROM stores WHERE name = '店家名稱' ORDER BY id DESC LIMIT 1), '原茶 (L)', 35, 1),
@@ -233,7 +237,7 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
 1. 只需要提供純 SQL 代碼，放在 \`\`\`sql 區塊內即可，不要包含其他解釋。
 2. 自動提取店家名稱與電話。店家分類 category 固定為 '合併點餐'。
 3. 語法格式：
-INSERT INTO stores (name, phone, category, is_active) VALUES ('店家名稱', '電話', '合併點餐', 1);
+INSERT INTO stores (name, phone, address, category, is_active) VALUES ('店家名稱', '電話', '外送備註', '合併點餐', 1);
 
 INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
 ((SELECT id FROM stores WHERE name = '店家名稱' ORDER BY id DESC LIMIT 1), '紅豆餅', 20, 1),
@@ -297,8 +301,9 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       }
     }
 
+    // 頂部快捷總覽 (包含 1:供餐中 與 2:已截止)
     function renderActiveOverview() {
-      const activeStores = globalStores.filter(s => s.is_active == 1);
+      const activeStores = globalStores.filter(s => s.is_active == 1 || s.is_active == 2);
 
       const bentoList = activeStores.filter(s => s.category === '便當');
       const drinkList = activeStores.filter(s => s.category === '飲料');
@@ -308,32 +313,49 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       document.getElementById('activeCountDrink').innerText = drinkList.length + ' 家';
       document.getElementById('activeCountBundle').innerText = bundleList.length + ' 家';
 
-      document.getElementById('activeCardsBento').innerHTML = renderActiveCardsHtml(bentoList, '便當');
-      document.getElementById('activeCardsDrink').innerHTML = renderActiveCardsHtml(drinkList, '飲料');
-      document.getElementById('activeCardsBundle').innerHTML = renderActiveCardsHtml(bundleList, '合併點餐');
+      document.getElementById('activeCardsBento').innerHTML = renderActiveCardsHtml(bentoList);
+      document.getElementById('activeCardsDrink').innerHTML = renderActiveCardsHtml(drinkList);
+      document.getElementById('activeCardsBundle').innerHTML = renderActiveCardsHtml(bundleList);
     }
 
-    function renderActiveCardsHtml(stores, cat) {
-      if (stores.length === 0) return '<p class="text-xs text-slate-500 italic py-1">尚無供餐</p>';
-      return stores.map(s => `
-        <div class="flex justify-between items-center bg-slate-700/80 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-white">
-          <span class="font-bold truncate mr-2">${s.name}</span>
-          <button onclick="toggleStore(${s.id}, 0)" class="text-[11px] text-amber-300 hover:text-white bg-amber-950/50 hover:bg-amber-800 px-2 py-0.5 rounded transition shrink-0">設為休息</button>
-        </div>
-      `).join('');
+    function renderActiveCardsHtml(stores) {
+      if (stores.length === 0) return '<p class="text-xs text-slate-500 italic py-1">尚無供餐店家</p>';
+      return stores.map(s => {
+        const isClosed = (s.is_active == 2);
+        const statusTag = isClosed 
+          ? '<span class="text-[10px] bg-red-950 text-red-300 border border-red-700/60 px-1.5 py-0.5 rounded font-bold">🔒已截止</span>'
+          : '<span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-700/60 px-1.5 py-0.5 rounded font-bold">🟢供餐中</span>';
+
+        return `
+          <div class="flex justify-between items-center bg-slate-700/80 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-white">
+            <div class="flex items-center space-x-1.5 truncate mr-2">
+              <span class="font-bold truncate">${s.name}</span>
+              ${statusTag}
+            </div>
+            <div class="space-x-1 shrink-0">
+              ${!isClosed ? `
+                <button onclick="toggleStore(${s.id}, 2)" class="text-[11px] text-amber-300 hover:text-white bg-amber-950/60 hover:bg-amber-800 px-1.5 py-0.5 rounded transition">截止</button>
+              ` : `
+                <button onclick="toggleStore(${s.id}, 1)" class="text-[11px] text-emerald-300 hover:text-white bg-emerald-950/60 hover:bg-emerald-800 px-1.5 py-0.5 rounded transition">重開</button>
+              `}
+              <button onclick="toggleStore(${s.id}, 0)" class="text-[11px] text-slate-300 hover:text-red-300 bg-slate-800 hover:bg-red-950 px-1.5 py-0.5 rounded transition" title="設為休息並清空訂單">休息</button>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     async function clearAllActiveStores() {
-      const activeStores = globalStores.filter(s => s.is_active == 1);
+      const activeStores = globalStores.filter(s => s.is_active == 1 || s.is_active == 2);
       if (activeStores.length === 0) return alert('目前沒有任何店家正在供餐中！');
 
-      if (!confirm('⚠️ 確定要一鍵將所有店家設為休息嗎？\n\n這將一併清空目前所有的點餐紀錄！')) return;
+      if (!confirm('⚠️ 確定要一鍵將所有店家設為「休息」嗎？\n\n這將一併清空目前所有的點餐紀錄！')) return;
 
       for (const s of activeStores) {
         await fetch('/api/store/toggle', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ storeId: Number(s.id), isActive: 0 })
+          body: JSON.stringify({ storeId: Number(s.id), status: 0 })
         });
       }
       loadStores();
@@ -375,12 +397,12 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       renderStoresList(stores);
     }
 
-    // 展開 / 收合單一店家的菜單卡片
     function toggleStoreMenu(storeId) {
       expandedStores[storeId] = !expandedStores[storeId];
       filterAndRenderStores();
     }
 
+    // 🌟 渲染店家列表（支援三態控制）
     function renderStoresList(stores) {
       const container = document.getElementById('storeContainer');
       if (!stores || stores.length === 0) {
@@ -393,9 +415,15 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
         const items = globalMenuItems.filter(m => m.store_id === s.id);
         const isExpanded = !!expandedStores[s.id];
 
-        const statusBadge = s.is_active 
-          ? '<span class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">供餐中</span>'
-          : '<span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-600">休息中</span>';
+        // 狀態 Badge 呈現
+        let statusBadge = '';
+        if (s.is_active == 1) {
+          statusBadge = '<span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">🟢 供餐中</span>';
+        } else if (s.is_active == 2) {
+          statusBadge = '<span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">🔒 已截止 (留單)</span>';
+        } else {
+          statusBadge = '<span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600">⏸️ 休息中</span>';
+        }
         
         let catBadge = '<span class="text-xs font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">🍱 便當</span>';
         if (s.category === '飲料') {
@@ -404,14 +432,20 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
           catBadge = '<span class="text-xs font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">🛍️ 合併點餐</span>';
         }
 
-        const toggleBtn = '<button onclick="event.stopPropagation(); toggleStore(' + s.id + ', ' + (s.is_active ? 0 : 1) + ')" class="text-xs font-semibold px-3 py-1.5 rounded-lg border ' + (s.is_active ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100') + ' transition">' + (s.is_active ? '切換為休息' : '設為今日供餐') + '</button>';
+        // 🌟 三態下拉切換選單
+        const statusSelectHtml = `
+          <select onclick="event.stopPropagation()" onchange="onStoreStatusSelectChange(${s.id}, this.value)" class="text-xs font-bold border border-slate-300 rounded-xl px-2.5 py-1.5 bg-slate-50 hover:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+            <option value="1" ${s.is_active == 1 ? 'selected' : ''}>🟢 供餐中 (可點餐)</option>
+            <option value="2" ${s.is_active == 2 ? 'selected' : ''}>🔒 截止收單 (保留現有點單)</option>
+            <option value="0" ${s.is_active == 0 ? 'selected' : ''}>⏸️ 設為休息 (清空該店訂單)</option>
+          </select>
+        `;
 
         html += `
           <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 transition space-y-3">
-            <!-- 卡片頂部標題與快捷按鈕 -->
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
               <div class="cursor-pointer select-none" onclick="toggleStoreMenu(${s.id})">
-                <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 flex-wrap gap-y-1">
                   <h3 class="text-lg sm:text-xl font-bold text-slate-800 hover:text-blue-600 transition flex items-center gap-1.5">
                     ${s.name}
                     <span class="text-xs text-slate-400 font-normal">(${items.length} 品項)</span>
@@ -421,6 +455,7 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
                 </div>
                 <p class="text-xs text-slate-500 mt-1 flex items-center gap-2">
                   <span>📞 ${s.phone || '未提供電話'}</span>
+                  ${s.address ? `<span class="text-amber-600">📍 ${s.address}</span>` : ''}
                   <span class="text-slate-300">|</span>
                   <span class="text-blue-600 font-semibold">${isExpanded ? '▲ 點擊收合菜單' : '▼ 點擊展開菜單'}</span>
                 </p>
@@ -428,17 +463,17 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
 
               <!-- 右側操作按鈕區 -->
               <div class="flex items-center space-x-1.5 flex-wrap gap-y-2">
-                ${toggleBtn}
-                <button onclick="event.stopPropagation(); toggleStoreMenu(${s.id})" class="text-xs font-semibold px-3 py-1.5 rounded-lg ${isExpanded ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'} transition">
+                ${statusSelectHtml}
+                <button onclick="event.stopPropagation(); toggleStoreMenu(${s.id})" class="text-xs font-semibold px-3 py-1.5 rounded-xl ${isExpanded ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'} transition">
                   ${isExpanded ? '📖 收合菜單' : '📖 編輯菜單'}
                 </button>
-                <button onclick="event.stopPropagation(); openEditStoreModal(${s.id})" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition">
+                <button onclick="event.stopPropagation(); openEditStoreModal(${s.id})" class="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition">
                   ✏️ 編輯店家
                 </button>
-                <button onclick="event.stopPropagation(); addMenuItemPrompt(${s.id}, '${s.name}')" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition">
+                <button onclick="event.stopPropagation(); addMenuItemPrompt(${s.id}, '${s.name}')" class="text-xs font-semibold px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition">
                   ➕ 新增餐點
                 </button>
-                <button onclick="event.stopPropagation(); deleteStore(${s.id}, '${s.name}')" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition">
+                <button onclick="event.stopPropagation(); deleteStore(${s.id}, '${s.name}')" class="text-xs font-semibold px-3 py-1.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition">
                   🗑️ 刪除店家
                 </button>
               </div>
@@ -460,11 +495,12 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
                     ${items.map(it => `
                       <div class="flex justify-between items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs">
                         <div class="truncate mr-2">
-                          <span class="font-bold text-slate-800">${it.item_name}</span>                           <span class="font-bold text-blue-600 ml-1.5">$${it.price}</span>
+                          <span class="font-bold text-slate-800">${it.item_name}</span>
+                          <span class="font-bold text-blue-600 ml-1.5">$${it.price}</span>
                         </div>
                         <div class="flex items-center space-x-1 shrink-0">
-                          <button onclick="editMenuItemPrompt(${it.id}, '${it.item_name}',${it.price})" class="text-slate-500 hover:text-blue-600 px-1.5 py-0.5 rounded bg-white border border-slate-200 transition" title="修改品項">✏️</button>
-                          <button onclick="deleteMenuItem(${it.id}, '${it.item_name}')" class="text-slate-500 hover:text-red-600 px-1.5 py-0.5 rounded bg-white border border-slate-200 transition" title="刪除品項">✕</button>
+                          <button onclick="editMenuItemPrompt(${it.id}, '${it.item_name.replace(/'/g, "\\'")}', ${it.price})" class="text-slate-500 hover:text-blue-600 px-1.5 py-0.5 rounded bg-white border border-slate-200 transition" title="修改品項">✏️</button>
+                          <button onclick="deleteMenuItem(${it.id}, '${it.item_name.replace(/'/g, "\\'")}')" class="text-slate-500 hover:text-red-600 px-1.5 py-0.5 rounded bg-white border border-slate-200 transition" title="刪除品項">✕</button>
                         </div>
                       </div>
                     `).join('')}
@@ -485,6 +521,7 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       activeEditingStoreId = storeId;
       document.getElementById('modalStoreName').value = store.name;
       document.getElementById('modalStorePhone').value = store.phone || '';
+      document.getElementById('modalStoreAddress').value = store.address || '';
       document.getElementById('modalStoreCategory').value = store.category || '便當';
       document.getElementById('editStoreModal').classList.remove('hidden');
     }
@@ -498,13 +535,14 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       if (!activeEditingStoreId) return;
       const name = document.getElementById('modalStoreName').value.trim();
       const phone = document.getElementById('modalStorePhone').value.trim();
+      const address = document.getElementById('modalStoreAddress').value.trim();
       const category = document.getElementById('modalStoreCategory').value;
       if (!name) return alert('名稱不能為空');
 
       const res = await fetch('/api/store/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storeId: activeEditingStoreId, name, phone, category })
+        body: JSON.stringify({ storeId: activeEditingStoreId, name, phone, address, category })
       });
       const json = await res.json();
       if (json.success) {
@@ -540,34 +578,46 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       });
       const json = await res.json();
       if (json.success) loadStores();
+      else alert(json.message || '刪除失敗');
     }
 
     async function addStore() {
       const name = document.getElementById('newStoreName').value.trim();
       const phone = document.getElementById('newStorePhone').value.trim();
+      const address = document.getElementById('newStoreAddress').value.trim();
       const category = document.getElementById('newStoreCategory').value;
       if (!name) return alert('請輸入店家名稱');
 
       const res = await fetch('/api/store/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, category })
+        body: JSON.stringify({ name, phone, address, category })
       });
       const json = await res.json();
       if (json.success) {
         alert('新增成功');
         document.getElementById('newStoreName').value = '';
         document.getElementById('newStorePhone').value = '';
+        document.getElementById('newStoreAddress').value = '';
         loadStores();
+      } else {
+        alert(json.message || '新增失敗');
       }
     }
 
-    async function toggleStore(storeId, isActive) {
-      const sId = Number(storeId);
-      const targetActive = Number(isActive);
+    // 🌟 下拉切換狀態防呆
+    function onStoreStatusSelectChange(storeId, val) {
+      toggleStore(storeId, Number(val));
+    }
 
-      if (targetActive === 0) {
-        if (!confirm('⚠️ 確定要將此店家設為「休息中」嗎？\n\n系統將自動清除該店家今天所有已被點的餐點！')) {
+    // 🌟 執行狀態切換 (支援 1:供餐, 2:截止收單保留單, 0:休息清空單)
+    async function toggleStore(storeId, targetStatus) {
+      const sId = Number(storeId);
+      const status = Number(targetStatus);
+
+      if (status === 0) {
+        if (!confirm('⚠️ 警告：確定要將此店家設為「休息中」嗎？\n\n系統將會【無條件清空】該店家今天所有已被點的餐點！\n\n（若只是要停止收單並向店家訂購，請選擇「截止收單」）')) {
+          loadStores(); // 取消時恢復原本下拉選項
           return;
         }
       }
@@ -576,16 +626,18 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
         const res = await fetch('/api/store/toggle', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ storeId: sId, isActive: targetActive })
+          body: JSON.stringify({ storeId: sId, status: status })
         });
         const json = await res.json();
         if (json.success) {
           loadStores();
         } else {
           alert('切換失敗：' + (json.message || '未知錯誤'));
+          loadStores();
         }
       } catch (err) {
         alert('網路異常，請稍後再試');
+        loadStores();
       }
     }
 
@@ -598,6 +650,7 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       });
       const json = await res.json();
       if (json.success) loadStores();
+      else alert(json.message || '刪除失敗');
     }
 
     async function addMenuItemPrompt(storeId, storeName) {
@@ -613,6 +666,7 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       });
       const json = await res.json();
       if (json.success) loadStores();
+      else alert(json.message || '新增失敗');
     }
 
     loadStores();
