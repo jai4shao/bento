@@ -167,7 +167,7 @@ app.get('/api/init-order-page', async (c) => {
 
   const stores = await db.prepare("SELECT * FROM stores ORDER BY is_active DESC, category ASC, id ASC").all();
   const menuItems = await db.prepare(`
-    SELECT m.*, s.category AS store_category, s.name AS store_name 
+    SELECT m.*, s.category AS store_category, s.name AS store_name, s.is_active AS store_is_active
     FROM menu_items m
     JOIN stores s ON m.store_id = s.id
     WHERE m.is_available = 1
@@ -394,19 +394,38 @@ app.post('/api/menu/add', async (c) => {
   }
 });
 
-// 修改菜單品項
+// 🌟 修改菜單品項 API (同步連動更新未結清的訂單價格)
 app.post('/api/menu/update', async (c) => {
   try {
     const { itemId, itemName, price, isAvailable } = await c.req.json();
     if (!itemId) return c.json({ success: false, message: '缺少品項ID' }, 400);
 
-    await c.env.DB.prepare(`
-      UPDATE menu_items 
-      SET item_name = ?, price = ?, is_available = ?
-      WHERE id = ?
-    `).bind(String(itemName).trim(), Number(price || 0), isAvailable !== undefined ? Number(isAvailable) : 1, Number(itemId)).run();
+    const mId = Number(itemId);
+    const newPrice = Number(price || 0);
+    const db = c.env.DB;
 
-    return c.json({ success: true, message: '品項更新成功！' });
+    await db.batch([
+      // 1. 更新菜單品項本身
+      db.prepare(`
+        UPDATE menu_items 
+        SET item_name = ?, price = ?, is_available = ?
+        WHERE id = ?
+      `).bind(
+        String(itemName).trim(), 
+        newPrice, 
+        isAvailable !== undefined ? Number(isAvailable) : 1, 
+        mId
+      ),
+
+      // 2. 同步更新現有未收款/今日訂單的單價，避免前後台金額脫鉤
+      db.prepare(`
+        UPDATE orders 
+        SET price = ? 
+        WHERE item_id = ? AND is_paid = 0
+      `).bind(newPrice, mId)
+    ]);
+
+    return c.json({ success: true, message: '品項更新成功，現有未結清訂單價格已同步更新！' });
   } catch (err: any) {
     return c.json({ success: false, message: err?.message || '品項更新失敗' }, 500);
   }
@@ -600,6 +619,26 @@ app.post('/api/admin/order/delete', async (c) => {
 app.post('/api/admin/orders/reset', async (c) => {
   await c.env.DB.prepare("DELETE FROM orders").run();
   return c.json({ success: true, message: '已清空本週所有點餐紀錄！' });
+});
+
+// 🌟 一鍵依最新菜單價格校正所有未結清訂單金額
+app.post('/api/admin/orders/realign-prices', async (c) => {
+  try {
+    const db = c.env.DB;
+    const result = await db.prepare(`
+      UPDATE orders 
+      SET price = (SELECT price FROM menu_items WHERE menu_items.id = orders.item_id)
+      WHERE is_paid = 0 
+        AND item_id IN (SELECT id FROM menu_items)
+    `).run();
+
+    return c.json({ 
+      success: true, 
+      message: `價格校正完成！已同步更新 ${result.meta.changes} 筆未結清餐點金額。` 
+    });
+  } catch (err: any) {
+    return c.json({ success: false, message: '校正失敗: ' + (err?.message || err) }, 500);
+  }
 });
 
 // 靜態資產全域兜底
