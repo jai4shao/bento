@@ -42,6 +42,10 @@
         <button id="toggleLockBtn" onclick="toggleOrderLock()" class="text-xs font-bold px-3.5 py-2 rounded-xl border shadow-sm transition">
           切換狀態中...
         </button>
+        <!-- 🌟 價格即時同步校正按鈕 -->
+        <button onclick="realignAllOrderPrices()" class="text-xs font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-xl border border-blue-200 transition" title="依據店家最新菜單價格重新校正今日未結清訂單">
+          🔄 校正菜單價格
+        </button>
         <a href="/" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl border border-slate-200 transition">回前台</a>
         <a href="/store_admin" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl border border-slate-200 transition">店家管理</a>
         <button onclick="resetAllOrders()" class="text-xs font-semibold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-xl border border-red-200 transition">清空訂單</button>
@@ -150,14 +154,19 @@
     let isCurrentlyLocked = false;
     let expandedUsers = {};
 
+    // 🌟 全面加入防快取機制
     async function loadAdminData() {
       try {
+        const timestamp = Date.now();
+        const fetchOpt = { cache: 'no-store' };
+
         const [initRes, sumRes, ordRes, statusRes] = await Promise.all([
-          fetch('/api/init-order-page'),
-          fetch('/api/admin/summary'),
-          fetch('/api/admin/orders'),
-          fetch('/api/system/status')
+          fetch(`/api/init-order-page?t=${timestamp}`, fetchOpt),
+          fetch(`/api/admin/summary?t=${timestamp}`, fetchOpt),
+          fetch(`/api/admin/orders?t=${timestamp}`, fetchOpt),
+          fetch(`/api/system/status?t=${timestamp}`, fetchOpt)
         ]);
+
         const initJson = await initRes.json();
         const sumJson = await sumRes.json();
         const ordJson = await ordRes.json();
@@ -176,6 +185,20 @@
       } catch (e) {
         console.error(e);
         document.getElementById('storeCallCardsContainer').innerHTML = '<p class="text-red-500 py-4 text-center text-sm">載入資料失敗</p>';
+      }
+    }
+
+    // 🌟 一鍵依最新菜單重新校準訂單金額
+    async function realignAllOrderPrices() {
+      if (!confirm('確定要依照「目前店家菜單的最新價格」，重新校正所有未結清訂單的金額嗎？\n\n（這能防止店家臨時調價後造成前台與核銷金額不一致）')) return;
+
+      try {
+        const res = await fetch('/api/admin/orders/realign-prices', { method: 'POST' });
+        const json = await res.json();
+        alert(json.message || '校正完成！');
+        loadAdminData();
+      } catch (e) {
+        alert('校正失敗，請檢查網路連線');
       }
     }
 
@@ -309,7 +332,8 @@
                   <tr class="hover:bg-white/60 transition">
                     <td class="py-1.5 px-1.5 font-bold text-slate-800">${it.item_name}</td>
                     <td class="py-1.5 px-1.5 text-slate-600 font-medium">${it.note || '-'}</td>
-                    <td class="py-1.5 px-1.5 text-center font-bold text-slate-800 text-sm">${it.qty}</td> <td class="py-1.5 px-1.5 text-right font-bold text-slate-700">$${it.subtotal}</td>
+                    <td class="py-1.5 px-1.5 text-center font-bold text-slate-800 text-sm">${it.qty}</td>
+                    <td class="py-1.5 px-1.5 text-right font-bold text-slate-700">$${it.subtotal}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -457,7 +481,8 @@
                   class="w-20 text-center font-bold text-sm border border-slate-300 rounded-xl py-1 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
                 
                 ${!isPaid && paidAmount > u.totalPrice ? `
-                  <button onclick="confirmChangeAndPay('${u.userName}', ${u.totalPrice})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded-lg text-xs shadow-xs transition animate-pulse"> ✓ 找完 $${change}，按此結清
+                  <button onclick="confirmChangeAndPay('${u.userName}', ${u.totalPrice})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded-lg text-xs shadow-xs transition animate-pulse">
+                    ✓ 找完 $${change}，按此結清
                   </button>
                 ` : ''}
               </div>
