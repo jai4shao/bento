@@ -210,7 +210,28 @@ app.post('/api/order/submit', async (c) => {
       return c.json({ success: false, message: '請選擇姓名與至少一項餐點' }, 400);
     }
 
-    const db = c.env.DB;
+const db = c.env.DB;
+
+    // 🛡️ 檢查購物車品項所屬店家是否處於「非供餐狀態」 (is_active != 1)
+    const itemIds = items.map((it: any) => Number(it.itemId)).filter(id => !isNaN(id));
+    if (itemIds.length > 0) {
+      const placeholders = itemIds.map(() => '?').join(',');
+      const unavailableStore: any = await db.prepare(`
+        SELECT s.name, s.is_active FROM menu_items m
+        JOIN stores s ON m.store_id = s.id
+        WHERE m.id IN (${placeholders}) AND s.is_active != 1
+        LIMIT 1
+      `).bind(...itemIds).first();
+
+      if (unavailableStore) {
+        const reason = unavailableStore.is_active === 2 ? '已提早截止收單' : '今日不供餐';
+        return c.json({ 
+          success: false, 
+          message: `【${unavailableStore.name}】${reason}，無法送出該店餐點！` 
+        }, 400);
+      }
+    }
+
     const statements: any[] = [];
 
     for (const item of items) {
