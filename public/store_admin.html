@@ -117,7 +117,7 @@
         <textarea id="rawSqlInput" rows="3" placeholder="請將 AI 產生的 SQL 語句（INSERT INTO stores / menu_items...）貼在此處..." class="w-full font-mono text-xs border border-slate-300 rounded-xl p-3 bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-blue-500"></textarea>
       </div>
       <div class="flex justify-end">
-        <button onclick="executeRawSql()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow transition">
+        <button onclick="executeRawSql(this)" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow transition">
           🚀 執行匯入 SQL
         </button>
       </div>
@@ -254,15 +254,16 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       });
     }
 
-    async function executeRawSql() {
+    async function executeRawSql(btn) {
       let sql = document.getElementById('rawSqlInput').value.trim();
       if (!sql) return alert('請先貼入 SQL 語法！');
       sql = sql.replace(/^```[a-zA-Z]*\n?/m, '').replace(/```$/m, '').trim();
-
-      const btn = event.target;
-      btn.disabled = true;
-      btn.innerText = '執行中...';
-
+    
+      if (btn) {
+        btn.disabled = true;
+        btn.innerText = '執行中...';
+      }
+    
       try {
         const res = await fetch('/api/admin/raw-sql', {
           method: 'POST',
@@ -280,20 +281,22 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       } catch (err) {
         alert('網路連線失敗');
       } finally {
-        btn.disabled = false;
-        btn.innerText = '🚀 執行匯入 SQL';
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = '🚀 執行匯入 SQL';
+        }
       }
     }
 
     async function loadStores() {
       try {
-        const res = await fetch('/api/init-order-page');
+        const res = await fetch('/api/init-order-page?t=' + Date.now(), { cache: 'no-store' });
         const json = await res.json();
         if (!json.success) throw new Error();
-
+    
         globalStores = json.data.stores || [];
         globalMenuItems = json.data.menuItems || [];
-
+    
         renderActiveOverview();
         filterAndRenderStores();
       } catch (err) {
