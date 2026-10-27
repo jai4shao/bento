@@ -306,7 +306,21 @@ app.post('/api/order/self-update', async (c) => {
     const { orderId, userName, itemId, note, price } = await c.req.json();
     if (!orderId || !userName || !itemId) return c.json({ success: false, message: '參數不完整' }, 400);
 
-    const result = await c.env.DB.prepare(`
+    const db = c.env.DB;
+
+    // 🛡️ 檢查欲更換的品項其店家是否已截止或休息
+    const targetStore: any = await db.prepare(`
+      SELECT s.name, s.is_active FROM menu_items m
+      JOIN stores s ON m.store_id = s.id
+      WHERE m.id = ?
+    `).bind(Number(itemId)).first();
+
+    if (targetStore && targetStore.is_active !== 1) {
+      const reason = targetStore.is_active === 2 ? '已提早截止收單' : '今日不供餐';
+      return c.json({ success: false, message: `【${targetStore.name}】${reason}，無法更改為該店品項！` }, 400);
+    }
+
+    const result = await db.prepare(`
       UPDATE orders 
       SET item_id = ?, note = ?, price = ?
       WHERE id = ? AND user_name = ?
