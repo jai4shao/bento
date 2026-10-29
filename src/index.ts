@@ -268,6 +268,60 @@ app.post('/api/user/add', async (c) => {
   }
 });
 
+// 🌟 修改人員姓名 API (同步連動更新 orders 裡的歷史姓名，避免核銷找不到人)
+app.post('/api/user/update', async (c) => {
+  try {
+    const { userId, newName } = await c.req.json();
+    const uId = Number(userId);
+    const cleanName = String(newName || '').trim();
+
+    if (!uId || !cleanName) {
+      return c.json({ success: false, message: '使用者ID與新姓名不能為空' }, 400);
+    }
+
+    const db = c.env.DB;
+    // 先查舊名字
+    const oldUser: any = await db.prepare("SELECT name FROM users WHERE id = ?").bind(uId).first();
+    if (!oldUser) {
+      return c.json({ success: false, message: '找不到該人員' }, 404);
+    }
+
+    await db.batch([
+      // 1. 更新 users 表
+      db.prepare("UPDATE users SET name = ? WHERE id = ?").bind(cleanName, uId),
+      // 2. 同步把 orders 歷史點餐名字一併改成新名字
+      db.prepare("UPDATE orders SET user_name = ? WHERE user_name = ?").bind(cleanName, oldUser.name)
+    ]);
+
+    return c.json({ success: true, message: `已成功將【${oldUser.name}】修改為【${cleanName}】！` });
+  } catch (err: any) {
+    if (err?.message?.includes('UNIQUE')) {
+      return c.json({ success: false, message: '修改失敗：該姓名已經存在！' }, 400);
+    }
+    return c.json({ success: false, message: err?.message || '修改失敗' }, 500);
+  }
+});
+
+// 🌟 刪除人員 API
+app.post('/api/user/delete', async (c) => {
+  try {
+    const { userId } = await c.req.json();
+    const uId = Number(userId);
+    if (!uId) return c.json({ success: false, message: '缺少人員ID' }, 400);
+
+    const db = c.env.DB;
+    const user: any = await db.prepare("SELECT name FROM users WHERE id = ?").bind(uId).first();
+    if (!user) return c.json({ success: false, message: '找不到該人員' }, 404);
+
+    // 檢查今天是否有未結清訂單
+    const activeOrder: any = await db.prepare("SELECT COUNT(*) AS count FROM orders WHERE user_name = ? AND is_paid = 0").bind(user.name).first();
+    if (activeOrder && activeOrder.count > 0) {
+      return c.json({ success: false, message: `無法刪除：【${user.name}】今日尚有未結清的訂單！` }, 400); }  await db.prepare("DELETE FROM users WHERE id = ?").bind(uId).run(); return c.json({ success: true, message: `人員【${user.name}】已成功刪除！` });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
+  }
+});
+
 app.post('/api/order/self-delete', async (c) => {
   try {
     const lockRow: any = await c.env.DB.prepare(
