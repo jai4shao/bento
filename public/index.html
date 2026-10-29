@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>今日便當與飲料點餐</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入手機友善裁切套件 Cropper.js -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
   <style>
     /* 確保全域字體以使用者裝置設定為基準 */
     html {
@@ -134,6 +137,26 @@
       </div>
     </section>
 
+    <!-- 💳 本日主揪收款區 -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
+      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-3">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800 flex items-center gap-1.5">
+            <span>💳</span> 本日主揪收款區
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">多團收款獨立展示；卡片滿 6 天系統將自動清理下架</p>
+        </div>
+        <button onclick="openPaymentModal()" class="text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-2 rounded-xl transition self-start sm:self-auto">
+          ➕ 新增我的收款項目
+        </button>
+      </div>
+
+      <!-- 多人收款卡片網格 -->
+      <div id="paymentCardsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <p class="col-span-full text-slate-400 py-6 text-center text-xs">載入收款項目中...</p>
+      </div>
+    </section>
+
   </div>
 
   <!-- 🏪 菜單選擇彈窗 Modal -->
@@ -236,6 +259,86 @@
     </div>
   </div>
 
+  <!-- ➕ 新增收款項目 Modal -->
+  <div id="paymentModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-5 space-y-3.5 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="text-base font-bold text-slate-800">建立主揪收款卡片</h3>
+        <button onclick="closePaymentModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">主揪姓名 *</label>
+          <input type="text" id="payInitiatorName" placeholder="如：王大明" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">開團/收款標題 *</label>
+          <input type="text" id="payTitle" placeholder="如：週三便當團、下午手搖飲" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        
+        <!-- 📸 圖片上傳與裁切預覽區 -->
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">收款 QR Code 圖片 (手機全螢幕截圖可直接裁切)</label>
+          <input type="file" id="payQrFileInput" accept="image/*" onchange="initCrop(event)" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-emerald-50 file:text-emerald-700 file:font-semibold hover:file:bg-emerald-100 cursor-pointer">
+          
+          <div id="imagePreviewBox" class="mt-2.5 hidden flex items-center gap-3 bg-slate-50 border border-slate-200 p-2 rounded-xl">
+            <img id="compressedImagePreview" src="" class="w-16 h-16 object-contain bg-white border border-slate-300 rounded-lg p-1">
+            <div>
+              <span class="text-xs font-bold text-emerald-700">✓ QR Code 裁切完成</span>
+              <p id="imageSizeIndicator" class="text-[11px] text-slate-400 mt-0.5">預估體積：約 25 KB</p>
+              <button type="button" onclick="clearUploadImage()" class="text-xs text-red-500 hover:underline mt-1">✕ 重新選圖</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">App 轉帳超連結 / 帳號 (選填)</label>
+          <input type="text" id="payAppLink" placeholder="貼入 LINE Pay 轉帳連結 或 銀行代碼+帳號" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">收款備註 (選填)</label>
+          <input type="text" id="payNote" placeholder="如：轉帳請附姓名/學號" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 p-2.5 rounded-xl space-y-1">
+          <label class="block font-bold text-amber-900">卡片管理密碼 * (防止被他人刪除)</label>
+          <input type="password" id="payPassword" placeholder="設定一組密碼，日後刪除卡片時核對" class="w-full border border-amber-300 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:ring-2 focus:ring-amber-500 text-xs">
+          <p class="text-[10px] text-amber-700">滿 6 天系統會自動清理此卡片；若提前收齊可憑此密碼刪除。</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2 border-t">
+        <button onclick="closePaymentModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
+        <button id="submitPayCardBtn" onclick="submitPaymentCard()" class="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow transition">發布收款卡片</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✂️ 獨立的互動裁切 Modal (覆蓋在最上層 z-[60]) -->
+  <div id="cropperModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex flex-col items-center justify-center p-4 z-[60]">
+    <div class="bg-white rounded-2xl max-w-md w-full p-4 space-y-3 flex flex-col max-h-[85vh]">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h4 class="text-sm font-bold text-slate-800">✂️ 請滑動或縮放，框出 QR Code 區域</h4>
+        <button onclick="cancelCrop()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+      </div>
+      
+      <!-- 裁切畫布容器 (固定高度防跑版) -->
+      <div class="w-full h-72 sm:h-80 bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center">
+        <img id="cropperImageTarget" src="" class="max-w-full max-h-full">
+      </div>
+
+      <div class="flex justify-between items-center pt-2">
+        <span class="text-[11px] text-slate-400">支援手機手指縮放與拖曳</span>
+        <div class="space-x-2">
+          <button type="button" onclick="cancelCrop()" class="px-3 py-1.5 text-xs text-slate-600 bg-slate-100 rounded-xl">取消</button>
+          <button type="button" onclick="confirmCrop()" class="px-4 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow">確認裁切</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const STORAGE_KEY = 'bento_user_name';
     let allStores = [];
@@ -248,6 +351,8 @@
     let selectedIce = '';
     let cart = [];
     let isLocked = false;
+    let cropperInstance = null;
+    let compressedBase64Image = '';
 
     async function initPage() {
       try {
@@ -268,7 +373,6 @@
         renderLockStatus(isLocked);
 
         const { stores, menuItems, users, orders } = json.data;
-        // 🌟 保留 1(供餐) 與 2(提早截止)，只過濾掉 0(公休休息)
         allStores = (stores || []).filter(s => s.is_active != 0);
         allMenuItems = menuItems || [];
         allOrders = orders || [];
@@ -276,6 +380,7 @@
         renderUsers(users);
         renderStoreButtons();
         renderOrders(allOrders);
+        loadPaymentCards();
       } catch (err) {
         console.error(err);
       }
@@ -356,7 +461,6 @@
         const icon = isDrink ? '🥤' : '🍱';
 
         if (s.is_active == 1) {
-          // 🟢 供餐中：正常可點擊按鈕
           html += `
             <button onclick="openMenuModal(${s.id})" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-400 shadow-sm transition">
               <span>${icon}</span>
@@ -365,7 +469,6 @@
             </button>
           `;
         } else if (s.is_active == 2) {
-          // 🔒 個別提前截止：按鈕變灰、店名加刪除線、點擊跳警示
           html += `
             <button onclick="alert('【${s.name}】已提早截止收單囉！無法再加點或更換。')" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed opacity-80 transition">
               <span>🔒</span>
@@ -387,7 +490,6 @@
       const store = allStores.find(s => s.id === storeId);
       if (!store) return;
 
-      // 個別店家截止防呆
       if (store.is_active == 2) {
         alert(`【${store.name}】已提早截止收單囉！無法再點餐。`);
         return;
@@ -791,7 +893,6 @@
       const targetStoreId = originalItem ? originalItem.store_id : null;
       const store = allStores.find(s => s.id === targetStoreId);
 
-      // 防呆：如果所屬店家已經截止收單或休息，禁止修改
       if (store && store.is_active == 2) {
         return alert(`【${store.name}】已提早截止收單，無法再更換品項！`);
       } else if (store && store.is_active == 0) {
@@ -831,7 +932,6 @@
       activeSelfEditingOrderId = null;
     }
 
-    // 🌟 儲存自我修改（帶防重複點擊狀態）
     async function saveSelfEdit() {
       const currentUser = document.getElementById('userSelect').value;
       if (!currentUser || !activeSelfEditingOrderId) return;
@@ -869,6 +969,235 @@
         btn.disabled = false;
         btn.innerText = '儲存修改';
       }
+    }
+
+    // ==========================================
+    // 💳 多位主揪收款專區與圖片裁切核心邏輯
+    // ==========================================
+    async function loadPaymentCards() {
+      try {
+        const res = await fetch('/api/payment/cards?t=' + Date.now(), { cache: 'no-store' });
+        const json = await res.json();
+        if (!json.success) return;
+
+        const cards = json.data || [];
+        const container = document.getElementById('paymentCardsGrid');
+
+        if (cards.length === 0) {
+          container.innerHTML = '<p class="col-span-full text-slate-400 py-6 text-center text-xs bg-slate-50 border border-dashed border-slate-200 rounded-xl">目前尚無主揪收款項目</p>';
+          return;
+        }
+
+        let html = '';
+        cards.forEach(c => {
+          const isHttp = c.app_link && (c.app_link.startsWith('http://') || c.app_link.startsWith('https://'));
+          html += `
+            <div class="border border-slate-200 bg-slate-50/60 rounded-2xl p-4 flex flex-col justify-between space-y-3 shadow-2xs">
+              <div class="space-y-2">
+                <div class="flex justify-between items-start">
+                  <div>
+                    <span class="text-[11px] font-bold text-emerald-700 bg-emerald-100/80 border border-emerald-300 px-2 py-0.5 rounded-md">主揪：${escapeHtml(c.initiator_name)}</span>
+                    <h3 class="font-bold text-slate-800 text-sm mt-1">${escapeHtml(c.title)}</h3>
+                  </div>
+                  <button onclick="deletePaymentCardPrompt(${c.id}, '${escapeHtml(c.title)}')" class="text-slate-400 hover:text-red-600 text-xs px-2 py-1 bg-white hover:bg-red-50 border border-slate-200 rounded-lg transition" title="刪除此卡片">
+                    🗑️ 刪除
+                  </button>
+                </div>
+
+                ${c.qr_image ? `
+                  <div class="flex justify-center py-1">
+                    <img src="${c.qr_image}" onclick="previewImage('${c.qr_image}')" class="w-36 h-36 object-contain bg-white border border-slate-200 rounded-xl p-1.5 shadow-2xs cursor-pointer hover:border-emerald-400 transition" title="點擊放大">
+                  </div>
+                ` : ''}
+
+                ${c.app_link ? `
+                  <div class="pt-1">
+                    ${isHttp ? `
+                      <a href="${c.app_link}" target="_blank" rel="noopener noreferrer" class="w-full inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition shadow-xs">
+                        📱 開啟行動支付 / 轉帳連結
+                      </a>
+                    ` : `
+                      <div class="bg-white border border-slate-200 rounded-xl p-2 text-center text-xs font-mono font-bold text-slate-700 select-all">
+                        ${escapeHtml(c.app_link)}
+                      </div>
+                    `}
+                  </div>
+                ` : ''}
+
+                ${c.note ? `
+                  <p class="text-[11px] text-slate-500 bg-white border border-slate-200/60 rounded-lg p-2 leading-relaxed">
+                    📌 備註：${escapeHtml(c.note)}
+                  </p>
+                ` : ''}
+              </div>
+
+              <div class="text-[10px] text-slate-400 border-t border-slate-200/60 pt-2 flex justify-between">
+                <span>建立時間：${c.created_at.slice(5, 16)}</span>
+                <span>6 天後自動刪除</span>
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      } catch (e) {
+        console.error('Load payment cards error:', e);
+      }
+    }
+
+    // 🌟 Cropper 圖片選擇與裁切視窗初始化
+    function initCrop(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const targetImg = document.getElementById('cropperImageTarget');
+        targetImg.src = e.target.result;
+
+        document.getElementById('cropperModal').classList.remove('hidden');
+
+        if (cropperInstance) {
+          cropperInstance.destroy();
+        }
+
+        cropperInstance = new Cropper(targetImg, {
+          aspectRatio: 1, // 正方形裁切最適合 QR Code
+          viewMode: 1,
+          autoCropArea: 0.75,
+          responsive: true,
+          guides: true
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // 🌟 確認裁切：強制縮至 400x400 px，壓至 25~40KB 的極小 JPEG
+    function confirmCrop() {
+      if (!cropperInstance) return;
+
+      const canvas = cropperInstance.getCroppedCanvas({
+        width: 400,
+        height: 400,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high'
+      });
+
+      compressedBase64Image = canvas.toDataURL('image/jpeg', 0.8);
+
+      document.getElementById('compressedImagePreview').src = compressedBase64Image;
+      document.getElementById('imagePreviewBox').classList.remove('hidden');
+
+      const approxSizeKb = Math.round((compressedBase64Image.length * (3 / 4)) / 1024);
+      document.getElementById('imageSizeIndicator').innerText = `已成功壓縮：約 ${approxSizeKb} KB`;
+
+      cancelCrop();
+    }
+
+    function cancelCrop() {
+      document.getElementById('cropperModal').classList.add('hidden');
+      if (cropperInstance) {
+        cropperInstance.destroy();
+        cropperInstance = null;
+      }
+    }
+
+    function clearUploadImage() {
+      compressedBase64Image = '';
+      document.getElementById('payQrFileInput').value = '';
+      document.getElementById('imagePreviewBox').classList.add('hidden');
+    }
+
+    async function submitPaymentCard() {
+      const initiatorName = document.getElementById('payInitiatorName').value.trim();
+      const title = document.getElementById('payTitle').value.trim();
+      const appLink = document.getElementById('payAppLink').value.trim();
+      const note = document.getElementById('payNote').value.trim();
+      const password = document.getElementById('payPassword').value.trim();
+
+      if (!initiatorName || !title || !password) {
+        return alert('請填寫主揪姓名、開團標題與卡片管理密碼！');
+      }
+
+      const btn = document.getElementById('submitPayCardBtn');
+      btn.disabled = true;
+      btn.innerText = '儲存中...';
+
+      try {
+        const res = await fetch('/api/payment/card/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            initiatorName,
+            title,
+            qrImage: compressedBase64Image,
+            appLink,
+            note,
+            password
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          alert(json.message);
+          closePaymentModal();
+          loadPaymentCards();
+        } else {
+          alert(json.message || '建立失敗');
+        }
+      } catch (err) {
+        alert('網路異常，請稍後再試');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '發布收款卡片';
+      }
+    }
+
+    async function deletePaymentCardPrompt(cardId, cardTitle) {
+      const password = prompt(`確定要刪除【${cardTitle}】這張收款卡片嗎？\n請輸入建立時設定的密碼：`);
+      if (!password || !password.trim()) return;
+
+      try {
+        const res = await fetch('/api/payment/card/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cardId, password: password.trim() })
+        });
+        const json = await res.json();
+        if (json.success) {
+          alert(json.message);
+          loadPaymentCards();
+        } else {
+          alert(json.message || '刪除失敗');
+        }
+      } catch (e) {
+        alert('網路異常');
+      }
+    }
+
+    function openPaymentModal() {
+      document.getElementById('payInitiatorName').value = document.getElementById('userSelect').value || '';
+      document.getElementById('payTitle').value = '';
+      document.getElementById('payAppLink').value = '';
+      document.getElementById('payNote').value = '';
+      document.getElementById('payPassword').value = '';
+      clearUploadImage();
+      document.getElementById('paymentModal').classList.remove('hidden');
+    }
+
+    function closePaymentModal() {
+      document.getElementById('paymentModal').classList.add('hidden');
+    }
+
+    function previewImage(src) {
+      const w = window.open('');
+      w.document.write(`<body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;height:100vh;"><img src="${src}" style="max-width:90%;max-height:90%;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,0.5)"></body>`);
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return String(text).replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      })[m]);
     }
 
     initPage();
