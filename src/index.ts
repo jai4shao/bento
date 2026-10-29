@@ -705,6 +705,91 @@ app.post('/api/admin/orders/realign-prices', async (c) => {
   }
 });
 
+// ==========================================
+// 💳 多人主揪收款卡片 API (支援自動清理 6 天過期項目)
+// ==========================================
+
+// 1. 取得所有有效收款卡片 (順便執行惰性清理，自動刪除滿 6 天卡片)
+app.get('/api/payment/cards', async (c) => {
+  try {
+    const db = c.env.DB;
+
+    // 🌟 惰性清理：自動刪除建立超過 6 天的舊卡片
+    await db.prepare(`
+      DELETE FROM payment_cards 
+      WHERE datetime(created_at, '+6 days') <= datetime('now')
+    `).run();
+
+    // 查詢現有卡片 (遮蔽 edit_password 防外洩)
+    const { results } = await db.prepare(`
+      SELECT id, initiator_name, title, qr_image, app_link, note, created_at,
+             datetime(created_at, '+6 days') AS expires_at
+      FROM payment_cards
+      ORDER BY id DESC
+    `).all();
+
+    return c.json({ success: true, data: results });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '讀取失敗' }, 500);
+  }
+});
+
+// 2. 新增收款卡片
+app.post('/api/payment/card/add', async (c) => {
+  try {
+    const { initiatorName, title, qrImage, appLink, note, password } = await c.req.json();
+    
+    if (!initiatorName || !title || !password) {
+      return c.json({ success: false, message: '主揪姓名、收款標題與卡片管理密碼為必填！' }, 400);
+    }
+
+    const db = c.env.DB;
+    await db.prepare(`
+      INSERT INTO payment_cards (initiator_name, title, qr_image, app_link, note, edit_password)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(
+      String(initiatorName).trim(),
+      String(title).trim(),
+      qrImage || '',
+      appLink ? String(appLink).trim() : '',
+      note ? String(note).trim() : '',
+      String(password).trim()
+    ).run();
+
+    return c.json({ success: true, message: '🎉 收款卡片建立成功！將保留 6 天後自動清理。' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '新增失敗' }, 500);
+  }
+});
+
+// 3. 刪除收款卡片 (驗證該卡片的建立密碼)
+app.post('/api/payment/card/delete', async (c) => {
+  try {
+    const { cardId, password } = await c.req.json();
+    const cId = Number(cardId);
+
+    if (!cId || !password) {
+      return c.json({ success: false, message: '缺少卡片編號或密碼' }, 400);
+    }
+
+    const db = c.env.DB;
+    const card: any = await db.prepare("SELECT edit_password FROM payment_cards WHERE id = ?").bind(cId).first();
+
+    if (!card) {
+      return c.json({ success: false, message: '找不到該卡片或已過期下架' }, 404);
+    }
+
+    if (card.edit_password !== String(password).trim()) {
+      return c.json({ success: false, message: '🔒 密碼錯誤！無法刪除此收款卡片。' }, 403);
+    }
+
+    await db.prepare("DELETE FROM payment_cards WHERE id = ?").bind(cId).run();
+    return c.json({ success: true, message: '收款卡片已刪除！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
+  }
+});
+
 // 靜態資產全域兜底
 app.get('/*', async (c) => c.env.ASSETS.fetch(c.req.raw));
 
