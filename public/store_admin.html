@@ -29,12 +29,16 @@
 <body class="bg-slate-100 min-h-screen text-slate-800 p-4 md:p-8">
   <div class="max-w-5xl mx-auto space-y-6">
 
-    <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex justify-between items-center">
+    <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">🏬 店家與菜單管理</h1>
-        <p class="text-xs text-slate-500 mt-1">三班制快速分流管理：頂部即時掌握本日供餐，支援獨立提前截止收單與休息清空</p>
+        <p class="text-xs text-slate-500 mt-1">三班制快速分流管理：頂部即時掌握本日供餐，支援獨立提前截止收單、休息清空與人員名冊維護</p>
       </div>
-      <div class="space-x-2">
+      <div class="flex items-center flex-wrap gap-2">
+        <!-- 🌟 新增人員管理按鈕 -->
+        <button onclick="openUserManagementModal()" class="text-xs font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3.5 py-2 rounded-xl border border-emerald-200 transition">
+          👥 人員管理
+        </button>
         <a href="/" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-200 transition">返回前台</a>
         <a href="/admin" class="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3.5 py-2 rounded-xl border border-blue-200 transition">收款對帳</a>
       </div>
@@ -201,9 +205,40 @@
     </div>
   </div>
 
+  <!-- 👥 人員名冊管理 Modal -->
+  <div id="userModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div>
+          <h3 class="text-lg font-bold text-slate-800">👥 人員名冊管理</h3>
+          <p class="text-xs text-slate-500 mt-0.5">修改同仁姓名（如代訂更正）或刪除多餘名稱</p>
+        </div>
+        <button onclick="closeUserManagementModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+
+      <!-- 新增人員快捷區塊 -->
+      <div class="flex gap-2">
+        <input type="text" id="modalNewUserName" placeholder="輸入新同仁姓名..." class="flex-1 border border-slate-300 rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+        <button onclick="addUserFromModal()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-xl transition shrink-0">
+          ➕ 新增
+        </button>
+      </div>
+
+      <!-- 人員列表容器 -->
+      <div class="max-h-[50vh] overflow-y-auto space-y-2 pr-1" id="userManagementList">
+        <p class="text-slate-400 py-6 text-center text-xs">載入人員名冊中...</p>
+      </div>
+
+      <div class="flex justify-end pt-3 border-t">
+        <button onclick="closeUserManagementModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">關閉</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let globalStores = [];
     let globalMenuItems = [];
+    let globalUsers = [];
     let activeCategoryTab = 'all';
     let activeEditingStoreId = null;
     let expandedStores = {};
@@ -258,12 +293,12 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       let sql = document.getElementById('rawSqlInput').value.trim();
       if (!sql) return alert('請先貼入 SQL 語法！');
       sql = sql.replace(/^```[a-zA-Z]*\n?/m, '').replace(/```$/m, '').trim();
-    
+
       if (btn) {
         btn.disabled = true;
         btn.innerText = '執行中...';
       }
-    
+
       try {
         const res = await fetch('/api/admin/raw-sql', {
           method: 'POST',
@@ -293,10 +328,11 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
         const res = await fetch('/api/init-order-page?t=' + Date.now(), { cache: 'no-store' });
         const json = await res.json();
         if (!json.success) throw new Error();
-    
+
         globalStores = json.data.stores || [];
         globalMenuItems = json.data.menuItems || [];
-    
+        globalUsers = json.data.users || [];
+
         renderActiveOverview();
         filterAndRenderStores();
       } catch (err) {
@@ -405,7 +441,6 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       filterAndRenderStores();
     }
 
-    // 🌟 渲染店家列表（支援三態控制）
     function renderStoresList(stores) {
       const container = document.getElementById('storeContainer');
       if (!stores || stores.length === 0) {
@@ -418,7 +453,6 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
         const items = globalMenuItems.filter(m => m.store_id === s.id);
         const isExpanded = !!expandedStores[s.id];
 
-        // 狀態 Badge 呈現
         let statusBadge = '';
         if (s.is_active == 1) {
           statusBadge = '<span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">🟢 供餐中</span>';
@@ -435,7 +469,6 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
           catBadge = '<span class="text-xs font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">🛍️ 合併點餐</span>';
         }
 
-        // 🌟 三態下拉切換選單
         const statusSelectHtml = `
           <select onclick="event.stopPropagation()" onchange="onStoreStatusSelectChange(${s.id}, this.value)" class="text-xs font-bold border border-slate-300 rounded-xl px-2.5 py-1.5 bg-slate-50 hover:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
             <option value="1" ${s.is_active == 1 ? 'selected' : ''}>🟢 供餐中 (可點餐)</option>
@@ -608,19 +641,17 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       }
     }
 
-    // 🌟 下拉切換狀態防呆
     function onStoreStatusSelectChange(storeId, val) {
       toggleStore(storeId, Number(val));
     }
 
-    // 🌟 執行狀態切換 (支援 1:供餐, 2:截止收單保留單, 0:休息清空單)
     async function toggleStore(storeId, targetStatus) {
       const sId = Number(storeId);
       const status = Number(targetStatus);
 
       if (status === 0) {
         if (!confirm('⚠️ 警告：確定要將此店家設為「休息中」嗎？\n\n系統將會【無條件清空】該店家今天所有已被點的餐點！\n\n（若只是要停止收單並向店家訂購，請選擇「截止收單」）')) {
-          loadStores(); // 取消時恢復原本下拉選項
+          loadStores();
           return;
         }
       }
@@ -670,6 +701,114 @@ INSERT INTO menu_items (store_id, item_name, price, is_available) VALUES
       const json = await res.json();
       if (json.success) loadStores();
       else alert(json.message || '新增失敗');
+    }
+
+    // ==========================================
+    // 👥 人員名冊管理核心邏輯
+    // ==========================================
+    function openUserManagementModal() {
+      renderUserManagementList();
+      document.getElementById('modalNewUserName').value = '';
+      document.getElementById('userModal').classList.remove('hidden');
+    }
+
+    function closeUserManagementModal() {
+      document.getElementById('userModal').classList.add('hidden');
+    }
+
+    function renderUserManagementList() {
+      const container = document.getElementById('userManagementList');
+      if (!globalUsers || globalUsers.length === 0) {
+        container.innerHTML = '<p class="text-slate-400 py-6 text-center text-xs">目前尚無任何人員資料</p>';
+        return;
+      }
+
+      let html = '';
+      globalUsers.forEach(u => {
+        html += `
+          <div class="flex justify-between items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs">
+            <span class="font-bold text-slate-800 text-sm">${u.name}</span>
+            <div class="flex items-center space-x-1.5">
+              <button onclick="editUserPrompt(${u.id}, '${u.name.replace(/'/g, "\\'")}')" class="text-blue-600 hover:text-blue-800 bg-white hover:bg-blue-50 border border-slate-200 px-2.5 py-1 rounded-lg font-semibold transition">
+                ✏️ 改名
+              </button>
+              <button onclick="deleteUser(${u.id}, '${u.name.replace(/'/g, "\\'")}')" class="text-red-600 hover:text-red-800 bg-white hover:bg-red-50 border border-slate-200 px-2.5 py-1 rounded-lg font-semibold transition">
+                🗑️ 刪除
+              </button>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    async function addUserFromModal() {
+      const input = document.getElementById('modalNewUserName');
+      const name = input.value.trim();
+      if (!name) return alert('請輸入姓名！');
+
+      try {
+        const res = await fetch('/api/user/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        const json = await res.json();
+        if (json.success) {
+          input.value = '';
+          await loadStores();
+          renderUserManagementList();
+        } else {
+          alert(json.message || '新增失敗');
+        }
+      } catch (e) {
+        alert('網路異常，請稍後再試');
+      }
+    }
+
+    async function editUserPrompt(userId, currentName) {
+      const newName = prompt(`修改【${currentName}】的姓名：\n（提示：修改後，今日該同仁已送出的點餐紀錄亦會同步更新為新姓名）`, currentName);
+      if (!newName || !newName.trim() || newName.trim() === currentName) return;
+
+      try {
+        const res = await fetch('/api/user/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, newName: newName.trim() })
+        });
+        const json = await res.json();
+        if (json.success) {
+          alert('🎉 ' + json.message);
+          await loadStores();
+          renderUserManagementList();
+        } else {
+          alert(json.message || '修改失敗');
+        }
+      } catch (e) {
+        alert('網路異常，請稍後再試');
+      }
+    }
+
+    async function deleteUser(userId, userName) {
+      if (!confirm(`⚠️ 確定要刪除同仁【${userName}】嗎？\n\n刪除後前台人員下拉選單將不再出現此姓名。`)) return;
+
+      try {
+        const res = await fetch('/api/user/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        const json = await res.json();
+        if (json.success) {
+          alert('🗑️ ' + json.message);
+          await loadStores();
+          renderUserManagementList();
+        } else {
+          alert(json.message || '刪除失敗');
+        }
+      } catch (e) {
+        alert('網路異常，請稍後再試');
+      }
     }
 
     loadStores();
