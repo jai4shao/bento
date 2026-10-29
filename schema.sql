@@ -60,3 +60,17 @@ INSERT OR IGNORE INTO system_settings (setting_key, setting_value, description) 
 ('order_end_weekday', '5', '截止星期 (5: 週五)'),
 ('order_end_time', '12:30', '截止時間'),
 ('last_reset_week', '2026-38', '最後自動重設週期');
+
+-- ==========================================
+-- 💳 多人主揪收款卡片 (支援 Base64 QR Code、滿 6 天自動下架)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS payment_cards (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  initiator_name TEXT NOT NULL,         -- 主揪姓名
+  title TEXT NOT NULL,                  -- 收款標題 (如：週三便當團、飲料團)
+  qr_image TEXT DEFAULT '',             -- 裁切壓縮後的 Base64 圖片
+  app_link TEXT DEFAULT '',             -- 行動支付或轉帳超連結/帳號
+  note TEXT DEFAULT '',                 -- 備註 (如：轉帳請附姓名)
+  edit_password TEXT NOT NULL,          -- 卡片專屬刪除/管理密碼
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
