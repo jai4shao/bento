@@ -53,6 +53,16 @@ async function ensureTables(db: D1Database) {
     db.prepare(`CREATE TABLE IF NOT EXISTS system_settings (
       setting_key TEXT PRIMARY KEY,
       setting_value TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS payment_cards (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      initiator_name TEXT NOT NULL,
+      title TEXT NOT NULL,
+      qr_image TEXT DEFAULT '',
+      app_link TEXT DEFAULT '',
+      note TEXT DEFAULT '',
+      edit_password TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`)
   ]);
 
