@@ -8,82 +8,85 @@
   <!-- 引入截圖函式庫 -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
+    /* 確保全域字體以使用者裝置設定為基準，設定基礎字體稍大以利手機閱讀 */
     html {
-      font-size: 100%;
+      font-size: 105%;
       -webkit-text-size-adjust: 100%;
     }
 
+    /* 🌟 強制全站「最小字體」不得小於 1rem (16px)，手機點餐店員好閱讀 */
     .text-xs,
+    .text-sm,
     [class*="text-[10px]"],
     [class*="text-[11px]"] {
-      font-size: 0.875rem !important;
-      line-height: 1.25rem !important;
+      font-size: 1rem !important;
+      line-height: 1.5rem !important;
     }
 
+    /* 提升輸入框、按鈕與選單在手機上的易讀性與點擊手感 */
     button, select, input {
-      font-size: 1rem !important;
+      font-size: 1.05rem !important;
     }
   </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 p-3 sm:p-6 md:p-8">
-  <div class="max-w-4xl mx-auto space-y-5">
+  <div class="max-w-4xl mx-auto space-y-6">
 
     <!-- 頂部卡片 -->
-    <header class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+    <header class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
       <div>
-        <div class="flex items-center space-x-2">
-          <h1 class="text-xl sm:text-2xl font-bold text-slate-800">📋 便當核銷與叫餐後台</h1>
-          <span id="lockStatusBadge" class="text-xs font-bold px-2.5 py-1 rounded-full border">載入中...</span>
+        <div class="flex items-center space-x-2.5 flex-wrap gap-y-1">
+          <h1 class="text-xl sm:text-3xl font-bold text-slate-800">📋 便當核銷與叫餐後台</h1>
+          <span id="lockStatusBadge" class="text-xs font-bold px-3 py-1 rounded-full border">載入中...</span>
         </div>
-        <p class="text-xs text-slate-500 mt-1">電話下單後請截止點餐；主揪核准之轉帳金額會自動帶入實收與核銷</p>
-        <p class="text-xs text-slate-500 mt-1">送暨南大學，綜合大樓B棟</p>
+        <p class="text-xs text-slate-500 mt-1.5 font-medium">電話下單後請截止點餐；主揪核准之轉帳金額會自動帶入實收與核銷</p>
       </div>
-      <div class="flex items-center flex-wrap gap-2">
-        <button id="toggleLockBtn" onclick="toggleOrderLock()" class="text-xs font-bold px-3.5 py-2 rounded-xl border shadow-sm transition">
+      <div class="flex items-center flex-wrap gap-2 shrink-0">
+        <button id="toggleLockBtn" onclick="toggleOrderLock()" class="text-xs font-bold px-4 py-2.5 rounded-xl border shadow-sm transition">
           切換狀態中...
         </button>
-        <button onclick="realignAllOrderPrices()" class="text-xs font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-xl border border-blue-200 transition" title="依據店家最新菜單價格重新校正今日未結清訂單">
+        <button onclick="realignAllOrderPrices()" class="text-xs font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3.5 py-2.5 rounded-xl border border-blue-200 transition" title="依據店家最新菜單價格重新校正今日未結清訂單">
           🔄 校正菜單價格
         </button>
-        <a href="/" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl border border-slate-200 transition">回前台</a>
-        <a href="/store_admin" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl border border-slate-200 transition">店家管理</a>
-        <button onclick="resetAllOrders()" class="text-xs font-semibold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-xl border border-red-200 transition">清空訂單</button>
+        <a href="/" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2.5 rounded-xl border border-slate-200 transition">回前台</a>
+        <a href="/store_admin" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2.5 rounded-xl border border-slate-200 transition">店家管理</a>
+        <button onclick="resetAllOrders()" class="text-xs font-semibold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3.5 py-2.5 rounded-xl border border-red-200 transition">清空訂單</button>
       </div>
     </header>
 
     <!-- 1. 叫餐統計區塊 -->
-    <section class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 space-y-4">
-      <div class="flex justify-between items-center border-b pb-3">
+    <section class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 space-y-4">
+      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-3">
         <div>
-          <h2 class="text-base sm:text-lg font-bold text-slate-800">📊 店家叫餐報單統計</h2>
-          <p class="text-xs text-slate-500 mt-0.5">依店家分卡展示，可一鍵生成隱藏姓名的點餐圖卡分享至 LINE</p>
+          <h2 class="text-lg sm:text-xl font-bold text-slate-800">📊 店家叫餐報單統計</h2>
+          <p class="text-xs text-slate-500 mt-0.5 font-medium">依店家分卡展示，可一鍵生成大字體點餐圖卡分享至 LINE</p>
         </div>
-        <span class="text-xs bg-blue-50 text-blue-700 font-bold px-3 py-1 rounded-full border border-blue-100" id="totalSummaryAmount">全單總額：$0</span>
+        <span class="text-sm bg-blue-50 text-blue-700 font-bold px-3.5 py-1.5 rounded-full border border-blue-100 self-start sm:self-auto" id="totalSummaryAmount">全單總額：$0</span>
       </div>
 
       <!-- 一般店家叫餐卡片容器 -->
-      <div id="storeCallCardsContainer" class="space-y-3">
+      <div id="storeCallCardsContainer" class="space-y-4">
         <p class="text-slate-400 py-4 text-center text-sm">載入叫餐統計中...</p>
       </div>
 
       <!-- 合併點餐專用叫餐區 -->
-      <div id="bundledStoresContainer" class="space-y-3 pt-2"></div>
+      <div id="bundledStoresContainer" class="space-y-4 pt-2"></div>
     </section>
 
     <!-- 2. 個人對帳核銷區塊 (自動帶入轉帳金額與沖帳狀態) -->
-    <section class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 space-y-4">
-      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-1 border-b pb-3">
+    <section class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 space-y-4">
+      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-3">
         <div>
-          <h2 class="text-base sm:text-lg font-bold text-slate-800">🧾 個人對帳與自動核銷</h2>
-          <p class="text-xs text-slate-500 mt-0.5">線上轉帳經主揪確認會自動帶入實收；支援大鈔找零與手動校正</p>
+          <h2 class="text-lg sm:text-xl font-bold text-slate-800">🧾 個人對帳與自動核銷</h2>
+          <p class="text-xs text-slate-500 mt-0.5 font-medium">線上轉帳經主揪確認會自動帶入實收；支援大鈔找零與手動校正</p>
         </div>
-        <div id="userCollectProgress" class="text-xs font-bold text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 self-start sm:self-auto">
+        <div id="userCollectProgress" class="text-xs font-bold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 self-start sm:self-auto">
           收款進度：計算中...
         </div>
       </div>
 
       <!-- 手機友善卡片名單容器 -->
-      <div id="userCardsList" class="space-y-3">
+      <div id="userCardsList" class="space-y-3.5">
         <p class="text-slate-400 py-6 text-center text-sm">載入對帳名單中...</p>
       </div>
     </section>
@@ -91,58 +94,58 @@
   </div>
 
   <!-- 修改訂單彈窗 Modal -->
-  <div id="editModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+  <div id="editModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 z-50">
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-5 space-y-4">
       <div class="flex justify-between items-center border-b pb-3">
         <div>
-          <h3 class="text-base font-bold text-slate-800">修改餐點品項</h3>
+          <h3 class="text-lg font-bold text-slate-800">修改餐點品項</h3>
           <p id="modalStoreIndicator" class="text-xs text-blue-600 font-bold mt-0.5"></p>
         </div>
-        <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+        <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
       </div>
       <div class="space-y-3 text-xs">
         <div>
           <label class="block font-semibold text-slate-700 mb-1">點餐人</label>
-          <input type="text" id="modalUserName" disabled class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-slate-500">
+          <input type="text" id="modalUserName" disabled class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-500 text-sm font-semibold">
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">更換該店家品項</label>
-          <select id="modalMenuSelect" onchange="onModalMenuChange()" class="w-full border border-slate-300 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-blue-500 text-xs"></select>
+          <select id="modalMenuSelect" onchange="onModalMenuChange()" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"></select>
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">金額 ($)</label>
-          <input type="number" id="modalPrice" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-700">
+          <input type="number" id="modalPrice" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800 text-sm">
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">備註需求</label>
-          <input type="text" id="modalNote" placeholder="微糖微冰、飯少等" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+          <input type="text" id="modalNote" placeholder="微糖微冰、飯少等" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm">
         </div>
       </div>
       <div class="flex justify-end space-x-2 pt-3 border-t">
         <button onclick="closeEditModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
-        <button onclick="saveOrderEdit()" class="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">儲存更新</button>
+        <button onclick="saveOrderEdit()" class="px-6 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">儲存更新</button>
       </div>
     </div>
   </div>
 
   <!-- 📸 截圖分享預覽視窗 Modal -->
-  <div id="imagePreviewModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+  <div id="imagePreviewModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 z-50">
     <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-5 space-y-4 text-center">
       <div class="flex justify-between items-center border-b pb-2">
-        <h3 class="text-base font-bold text-slate-800">📸 叫餐分享圖片已生成</h3>
-        <button onclick="closeImagePreviewModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+        <h3 class="text-lg font-bold text-slate-800">📸 叫餐分享圖片已生成</h3>
+        <button onclick="closeImagePreviewModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
       </div>
       <p class="text-xs text-slate-500">手機端可<b>長按圖片</b>直接「複製」或「儲存」轉傳至 LINE！</p>
       <div id="imagePreviewContainer" class="max-h-[60vh] overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50"></div>
       <div class="flex justify-center space-x-2 pt-2 border-t">
-        <a id="downloadImageBtn" href="#" download="叫餐明細.png" class="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">💾 下載圖片</a>
+        <a id="downloadImageBtn" href="#" download="叫餐明細.png" class="px-5 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">💾 下載圖片</a>
         <button onclick="closeImagePreviewModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl border border-slate-200 transition">關閉</button>
       </div>
     </div>
   </div>
 
-  <!-- 隱藏渲染容器 (供 html2canvas 繪製圖片用) -->
-  <div id="captureArea" style="position:fixed; left:-9999px; top:-9999px; width:480px; background:#ffffff; color:#333333; padding:24px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-sizing:border-box;"></div>
+  <!-- 隱藏渲染容器 (供 html2canvas 繪製圖片用，加大至 560px 寬度以利大字體排版) -->
+  <div id="captureArea" style="position:fixed; left:-9999px; top:-9999px; width:560px; background:#ffffff; color:#333333; padding:28px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-sizing:border-box;"></div>
 
   <script>
     let rawOrders = [];
@@ -205,14 +208,14 @@
 
       if (isCurrentlyLocked) {
         badge.innerText = '🔴 已結單 (已截止)';
-        badge.className = 'text-xs font-bold px-2.5 py-1 rounded-full border bg-red-50 text-red-700 border-red-200';
+        badge.className = 'text-xs font-bold px-3 py-1 rounded-full border bg-red-50 text-red-700 border-red-200';
         btn.innerText = '🔓 重新開放點餐';
-        btn.className = 'text-xs font-bold px-3.5 py-2 rounded-xl border bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm transition';
+        btn.className = 'text-xs font-bold px-4 py-2.5 rounded-xl border bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm transition';
       } else {
         badge.innerText = '🟢 開放登記中';
-        badge.className = 'text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200';
+        badge.className = 'text-xs font-bold px-3 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200';
         btn.innerText = '🔒 截止點餐 (已下單)';
-        btn.className = 'text-xs font-bold px-3.5 py-2 rounded-xl border bg-red-600 hover:bg-red-700 text-white border-red-600 shadow-sm transition';
+        btn.className = 'text-xs font-bold px-4 py-2.5 rounded-xl border bg-red-600 hover:bg-red-700 text-white border-red-600 shadow-sm transition';
       }
     }
 
@@ -288,7 +291,7 @@
 
       const storeKeys = Object.keys(storeGroups);
       if (storeKeys.length === 0) {
-        container.innerHTML = '<div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center text-slate-400 text-xs">目前無便當/飲料類餐點（所有餐點均屬下方合併分袋清單）</div>';
+        container.innerHTML = '<div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center text-slate-400 text-xs font-medium">目前無便當/飲料類餐點（所有餐點均屬下方合併分袋清單）</div>';
         return;
       }
 
@@ -299,38 +302,38 @@
         const badgeColor = isDrink ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200';
 
         html += `
-          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-4 space-y-2.5">
-            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-1.5 border-b border-slate-200 pb-2">
-              <div class="flex items-center space-x-2">
-                <span class="text-sm sm:text-base font-bold text-slate-800">${group.storeName}</span>
-                <span class="text-[10px] font-bold px-2 py-0.5 rounded border ${badgeColor}">${group.category}</span>
-                ${group.phone ? `<span class="text-xs text-slate-500 font-mono">📞 ${group.phone}</span>` : ''}
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 space-y-3">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-200 pb-2.5">
+              <div class="flex items-center space-x-2.5 flex-wrap">
+                <span class="text-base sm:text-lg font-bold text-slate-800">${group.storeName}</span>
+                <span class="text-xs font-bold px-2.5 py-0.5 rounded border ${badgeColor}">${group.category}</span>
+                ${group.phone ? `<span class="text-xs text-slate-500 font-mono font-bold">📞 ${group.phone}</span>` : ''}
               </div>
               <div class="flex items-center space-x-2 text-xs">
-                <span class="font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md">共 ${group.totalQty} 份</span>
-                <span class="font-bold text-blue-700 bg-blue-100/70 border border-blue-200 px-2 py-0.5 rounded-md">小計：$${group.totalAmount}</span>
-                <button onclick="captureStoreSummaryImage('${group.storeName.replace(/'/g, "\\'")}')" class="font-bold text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-lg transition shadow-2xs">
+                <span class="font-bold text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-md">共 ${group.totalQty} 份</span>
+                <span class="font-bold text-blue-700 bg-blue-100/70 border border-blue-200 px-2.5 py-1 rounded-md">小計：$${group.totalAmount}</span>
+                <button onclick="captureStoreSummaryImage('${group.storeName.replace(/'/g, "\\'")}')" class="font-bold text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg transition shadow-2xs">
                   📸 分享圖卡
                 </button>
               </div>
             </div>
 
-            <table class="w-full text-left border-collapse text-xs">
+            <table class="w-full text-left border-collapse text-sm">
               <thead>
                 <tr class="text-slate-400 border-b border-slate-200">
-                  <th class="py-1 px-1.5">品項名稱</th>
-                  <th class="py-1 px-1.5">規格 / 備註</th>
-                  <th class="py-1 px-1.5 text-center w-14">數量</th>
-                  <th class="py-1 px-1.5 text-right w-16">小計</th>
+                  <th class="py-1.5 px-2">品項名稱</th>
+                  <th class="py-1.5 px-2">規格 / 備註</th>
+                  <th class="py-1.5 px-2 text-center w-16">數量</th>
+                  <th class="py-1.5 px-2 text-right w-20">小計</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200/60">
                 ${group.items.map(it => `
                   <tr class="hover:bg-white/60 transition">
-                    <td class="py-1.5 px-1.5 font-bold text-slate-800">${it.item_name}</td>
-                    <td class="py-1.5 px-1.5 text-slate-600 font-medium">${it.note || '-'}</td>
-                    <td class="py-1.5 px-1.5 text-center font-bold text-slate-800 text-sm">${it.qty}</td>
-                    <td class="py-1.5 px-1.5 text-right font-bold text-slate-700">$${it.subtotal}</td>
+                    <td class="py-2 px-2 font-bold text-slate-800 text-base">${it.item_name}</td>
+                    <td class="py-2 px-2 text-slate-600 font-medium">${it.note || '-'}</td>
+                    <td class="py-2 px-2 text-center font-bold text-slate-800 text-base">${it.qty}</td>
+                    <td class="py-2 px-2 text-right font-bold text-slate-700 text-base">$${it.subtotal}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -366,35 +369,35 @@
         });
 
         let bagsHtml = `
-          <div class="bg-amber-50/70 border border-amber-200 rounded-xl p-3 sm:p-4 space-y-2.5">
-            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-1.5 border-b border-amber-200 pb-2">
+          <div class="bg-amber-50/70 border border-amber-200 rounded-xl p-4 sm:p-5 space-y-3">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-amber-200 pb-2.5">
               <div class="flex items-center space-x-2">
-                <span class="text-sm sm:text-base font-bold text-amber-900 flex items-center gap-1">
+                <span class="text-base sm:text-lg font-bold text-amber-900 flex items-center gap-1.5">
                   <span>🛍️</span> <span>[${s.name}] 個人分袋叫餐清單</span>
                 </span>
-                ${s.phone ? `<span class="text-xs text-amber-700 font-mono">📞 ${s.phone}</span>` : ''}
+                ${s.phone ? `<span class="text-xs text-amber-700 font-mono font-bold">📞 ${s.phone}</span>` : ''}
               </div>
               <div class="flex items-center space-x-2 text-xs">
-                <span class="font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">共 ${Object.keys(userBags).length} 袋</span>
-                <span class="font-bold text-amber-900 bg-amber-200/80 border border-amber-300 px-2 py-0.5 rounded-md">店家合計：$${storeTotal}</span>
-                <button onclick="captureBundledStoreImage('${s.name.replace(/'/g, "\\'")}')" class="font-bold text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 border border-amber-400 px-2.5 py-1 rounded-lg transition shadow-2xs">
+                <span class="font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2.5 py-1 rounded-md">共 ${Object.keys(userBags).length} 袋</span>
+                <span class="font-bold text-amber-900 bg-amber-200/80 border border-amber-300 px-2.5 py-1 rounded-md">合計：$${storeTotal}</span>
+                <button onclick="captureBundledStoreImage('${s.name.replace(/'/g, "\\'")}')" class="font-bold text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 border border-amber-400 px-3 py-1 rounded-lg transition shadow-2xs">
                   📸 分享分袋圖卡
                 </button>
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs pt-1">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 text-xs pt-1">
         `;
 
         Object.values(userBags).forEach((bag, idx) => {
           const itemListStr = Object.entries(bag.items).map(([name, qty]) => `${name} × ${qty}`).join('、');
           bagsHtml += `
-            <div class="bg-white border border-amber-200 rounded-xl p-2.5 space-y-1 shadow-2xs">
-              <div class="flex justify-between items-center font-bold text-slate-800 border-b border-slate-100 pb-1">
+            <div class="bg-white border border-amber-200 rounded-xl p-3 space-y-1.5 shadow-2xs">
+              <div class="flex justify-between items-center font-bold text-slate-800 border-b border-slate-100 pb-1 text-sm">
                 <span>袋子 #${idx + 1}：${bag.userName}</span>
-                <span class="text-amber-700">$${bag.bagTotal}</span>
+                <span class="text-amber-700 font-extrabold">$${bag.bagTotal}</span>
               </div>
-              <p class="text-slate-600 text-[11px] leading-relaxed">${itemListStr}</p>
+              <p class="text-slate-600 text-xs leading-relaxed font-medium">${itemListStr}</p>
             </div>
           `;
         });
@@ -419,7 +422,7 @@
           usersMap[o.user_name] = {
             userName: o.user_name,
             totalPrice: 0,
-            totalPaidAmount: 0, // 🌟 統計此人所有品項累計實收
+            totalPaidAmount: 0,
             isAllPaid: true,
             hasTransferNote: false,
             items: []
@@ -436,7 +439,6 @@
 
       let totalPaidCount = 0;
       userList.forEach(u => { 
-        // 若總實收 >= 應收，視為結清
         if (u.isAllPaid || u.totalPaidAmount >= u.totalPrice) totalPaidCount++; 
       });
 
@@ -455,74 +457,73 @@
         let cardBorder = isPaid ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200 bg-white';
 
         if (isPaid) {
-          statusBadge = '<span class="text-[11px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">✓ 已結清</span>';
+          statusBadge = '<span class="text-xs font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full">✓ 已結清</span>';
         } else if (paidAmount > u.totalPrice) {
-          statusBadge = `<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">需找 $${diff}</span>`;
+          statusBadge = `<span class="text-xs font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full">需找 $${diff}</span>`;
         } else if (paidAmount > 0) {
-          statusBadge = `<span class="text-[11px] font-bold text-blue-700 bg-blue-100 border border-blue-300 px-2 py-0.5 rounded-full">已收 $${paidAmount} (欠 $${Math.abs(diff)})</span>`;
+          statusBadge = `<span class="text-xs font-bold text-blue-700 bg-blue-100 border border-blue-300 px-2.5 py-0.5 rounded-full">已收 $${paidAmount} (欠 $${Math.abs(diff)})</span>`;
         } else {
-          statusBadge = '<span class="text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">未付款</span>';
+          statusBadge = '<span class="text-xs font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">未付款</span>';
         }
 
         html += `
-          <div class="border rounded-2xl p-3.5 shadow-2xs transition space-y-3 ${cardBorder}">
+          <div class="border rounded-2xl p-4 sm:p-5 shadow-2xs transition space-y-3.5 ${cardBorder}">
             
             <div class="flex items-center justify-between cursor-pointer select-none" onclick="toggleUserExpand('${u.userName}')">
               <div class="flex items-center space-x-2.5 flex-wrap gap-y-1">
-                <span class="text-sm sm:text-base font-bold text-slate-800">${u.userName}</span>
-                <span class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-medium">${u.items.length} 份</span>
+                <span class="text-base sm:text-lg font-bold text-slate-800">${u.userName}</span>
+                <span class="text-xs text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-md font-bold">${u.items.length} 份</span>
                 ${statusBadge}
-                ${u.hasTransferNote ? '<span class="text-[10px] bg-indigo-100 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-bold">📱 轉帳入帳</span>' : ''}
+                ${u.hasTransferNote ? '<span class="text-xs bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded font-bold">📱 轉帳入帳</span>' : ''}
               </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-base sm:text-lg font-bold ${isPaid ? 'text-emerald-700' : 'text-slate-800'}">$${u.totalPrice}</span>
+              <div class="flex items-center space-x-2 shrink-0">
+                <span class="text-lg sm:text-xl font-bold ${isPaid ? 'text-emerald-700' : 'text-slate-800'}">$${u.totalPrice}</span>
                 <span class="text-slate-400 text-xs transform transition-transform ${isExpanded ? 'rotate-180' : ''}">▼</span>
               </div>
             </div>
 
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t border-slate-100 text-xs">
               <div class="flex items-center space-x-2">
-                <span class="text-slate-500 font-semibold">實收：$</span>
-                <!-- 🌟 自動帶入已繳金額 -->
+                <span class="text-slate-600 font-bold">實收：$</span>
                 <input type="number" value="${paidAmount > 0 ? paidAmount : ''}" placeholder="${u.totalPrice}"
                   onblur="onUserPaidAmountInput('${u.userName}', ${u.totalPrice}, this.value)"
-                  class="w-20 text-center font-bold text-sm border border-slate-300 rounded-xl py-1 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                  class="w-24 text-center font-bold text-base border border-slate-300 rounded-xl py-1.5 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
                 
                 ${!isPaid && paidAmount > u.totalPrice ? `
-                  <button onclick="confirmChangeAndPay('${u.userName}', ${u.totalPrice})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded-lg text-xs shadow-xs transition animate-pulse">
+                  <button onclick="confirmChangeAndPay('${u.userName}', ${u.totalPrice})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-xs transition animate-pulse">
                     ✓ 找完 $${diff}，按此結清
                   </button>
                 ` : ''}
               </div>
 
-              <label class="inline-flex items-center space-x-1.5 cursor-pointer select-none bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1 rounded-xl transition">
+              <label class="inline-flex items-center space-x-2 cursor-pointer select-none bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3.5 py-1.5 rounded-xl transition">
                 <input type="checkbox" onchange="toggleUserPaidCheckbox('${u.userName}', ${u.totalPrice}, this.checked)" ${isPaid ? 'checked' : ''}
                   class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
-                <span class="text-xs font-semibold ${isPaid ? 'text-emerald-700 font-bold' : 'text-slate-600'}">結清標記</span>
+                <span class="text-xs font-bold ${isPaid ? 'text-emerald-700' : 'text-slate-600'}">結清標記</span>
               </label>
             </div>
 
             ${isExpanded ? `
-              <div class="pt-2 border-t border-slate-100 space-y-1.5">
-                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">點購內容明細</div>
+              <div class="pt-2.5 border-t border-slate-100 space-y-2">
+                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">點購內容明細</div>
                 ${u.items.map(it => {
                   const isTransfer = it.note && it.note.includes('[轉帳');
                   return `
-                    <div class="flex items-center justify-between bg-slate-50 border border-slate-200/80 rounded-xl p-2 text-xs">
+                    <div class="flex items-center justify-between bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 text-xs">
                       <div class="truncate mr-2">
-                        <span class="text-blue-600 font-semibold">[${it.store_name || '未指定'}]</span>
-                        <span class="font-bold text-slate-800">${it.item_name}</span>
+                        <span class="text-blue-600 font-bold">[${it.store_name || '未指定'}]</span>
+                        <span class="font-bold text-slate-800 text-sm ml-1">${it.item_name}</span>
                         ${it.note ? `
-                          <span class="text-[10px] px-1.5 py-0.5 rounded ml-1 font-semibold ${isTransfer ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'text-amber-800 bg-amber-50 border border-amber-200'}">
+                          <span class="text-[11px] px-2 py-0.5 rounded ml-1.5 font-bold ${isTransfer ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'text-amber-800 bg-amber-50 border border-amber-200'}">
                             ${it.note}
                           </span>
                         ` : ''}
                         <span class="text-slate-500 font-bold ml-1.5">$${it.price}</span>
                         ${it.paid_amount > 0 ? `<span class="text-emerald-600 font-bold ml-1">(已抵$${it.paid_amount})</span>` : ''}
                       </div>
-                      <div class="space-x-1 shrink-0">
-                        <button onclick="openEditModal(${it.id})" class="text-xs text-blue-600 hover:text-blue-800 font-semibold px-2 py-0.5 rounded bg-blue-50 border border-blue-200">修改</button>
-                        <button onclick="deleteOrder(${it.id})" class="text-xs text-red-600 hover:text-red-800 font-semibold px-2 py-0.5 rounded bg-red-50 border border-red-200">刪除</button>
+                      <div class="space-x-1.5 shrink-0">
+                        <button onclick="openEditModal(${it.id})" class="text-xs text-blue-600 hover:text-blue-800 font-bold px-2.5 py-1 rounded bg-blue-50 border border-blue-200">修改</button>
+                        <button onclick="deleteOrder(${it.id})" class="text-xs text-red-600 hover:text-red-800 font-bold px-2.5 py-1 rounded bg-red-50 border border-red-200">刪除</button>
                       </div>
                     </div>
                   `;
@@ -572,7 +573,7 @@
     }
 
     // ==========================================
-    // 📸 產生截圖分享核心邏輯
+    // 📸 產生截圖分享核心邏輯 (加大文字尺寸與寬度)
     // ==========================================
     async function captureStoreSummaryImage(storeName) {
       const stMeta = allStoresList.find(s => s.name === storeName) || {};
@@ -591,37 +592,37 @@
         totalQty += Number(it.qty || 0);
         totalAmount += Number(it.subtotal || 0);
         rowsHtml += `
-          <tr style="border-bottom: 1px solid #f1f5f9;">
-            <td style="padding: 10px 6px; font-weight:600; color:#1e293b; font-size:14px;">
+          <tr style="border-bottom: 1.5px solid #e2e8f0;">
+            <td style="padding: 12px 8px; font-weight:700; color:#0f172a; font-size:18px;">
               ${escapeHtml(it.item_name)}
-              ${it.note ? `<div style="font-size:12px; color:#d97706; margin-top:2px;">↳ 備註：${escapeHtml(it.note)}</div>` : ''}
+              ${it.note ? `<div style="font-size:15px; font-weight:600; color:#d97706; margin-top:3px;">↳ 備註：${escapeHtml(it.note)}</div>` : ''}
             </td>
-            <td style="padding: 10px 6px; text-align:center; font-weight:bold; color:#0f172a; font-size:15px;">${it.qty}</td>
-            <td style="padding: 10px 6px; text-align:right; font-weight:bold; color:#334155; font-size:14px;">$${it.subtotal}</td>
+            <td style="padding: 12px 8px; text-align:center; font-weight:800; color:#0f172a; font-size:20px;">${it.qty}</td>
+            <td style="padding: 12px 8px; text-align:right; font-weight:800; color:#334155; font-size:18px;">$${it.subtotal}</td>
           </tr>
         `;
       });
 
       const captureHtml = `
-        <div style="border-bottom: 2px dashed #cbd5e1; padding-bottom: 14px; margin-bottom: 14px;">
-          <div style="font-size: 20px; font-weight: 800; color: #0f172a;">🍱 叫餐清單 - ${escapeHtml(storeName)}</div>
-          ${stMeta.phone ? `<div style="font-size: 13px; color: #64748b; margin-top: 4px;">📞 電話：${escapeHtml(stMeta.phone)}</div>` : ''}
-          ${stMeta.address ? `<div style="font-size: 12px; color: #ea580c; margin-top: 2px;">📍 備註：${escapeHtml(stMeta.address)}</div>` : ''}
-          <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">🕒 產出時間：${new Date().toLocaleString('zh-TW', { hour12: false })}</div>
+        <div style="border-bottom: 2px dashed #cbd5e1; padding-bottom: 16px; margin-bottom: 16px;">
+          <div style="font-size: 26px; font-weight: 800; color: #0f172a;">🍱 叫餐清單 - ${escapeHtml(storeName)}</div>
+          ${stMeta.phone ? `<div style="font-size: 16px; font-weight:600; color: #475569; margin-top: 6px;">📞 電話：${escapeHtml(stMeta.phone)}</div>` : ''}
+          ${stMeta.address ? `<div style="font-size: 15px; font-weight:600; color: #ea580c; margin-top: 4px;">📍 備註：${escapeHtml(stMeta.address)}</div>` : ''}
+          <div style="font-size: 14px; color: #64748b; margin-top: 4px;">🕒 產出時間：${new Date().toLocaleString('zh-TW', { hour12: false })}</div>
         </div>
-        <table style="width:100%; border-collapse:collapse; margin-bottom:14px;">
+        <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
           <thead>
-            <tr style="background:#f8fafc; border-bottom:1px solid #cbd5e1; text-align:left; font-size:13px; color:#64748b;">
-              <th style="padding:8px 6px;">品項與需求</th>
-              <th style="padding:8px 6px; text-align:center; width:60px;">數量</th>
-              <th style="padding:8px 6px; text-align:right; width:70px;">小計</th>
+            <tr style="background:#f1f5f9; border-bottom:2px solid #cbd5e1; text-align:left; font-size:16px; font-weight:700; color:#475569;">
+              <th style="padding:10px 8px;">品項與需求</th>
+              <th style="padding:10px 8px; text-align:center; width:70px;">數量</th>
+              <th style="padding:10px 8px; text-align:right; width:90px;">小計</th>
             </tr>
           </thead>
           <tbody>${rowsHtml}</tbody>
         </table>
-        <div style="border-top:2px solid #0f172a; padding-top:10px; display:flex; justify-content:space-between; align-items:baseline;">
-          <span style="font-size:15px; font-weight:bold; color:#334155;">共計餐點：${totalQty} 份</span>
-          <span style="font-size:18px; font-weight:bold; color:#e11d48;">總金額：$${totalAmount}</span>
+        <div style="border-top:3px solid #0f172a; padding-top:12px; display:flex; justify-content:space-between; align-items:baseline;">
+          <span style="font-size:18px; font-weight:800; color:#334155;">共計餐點：${totalQty} 份</span>
+          <span style="font-size:24px; font-weight:800; color:#e11d48;">總金額：$${totalAmount}</span>
         </div>
       `;
 
@@ -654,26 +655,26 @@
       Object.values(userBags).forEach((bag, idx) => {
         const itemListStr = Object.entries(bag.items).map(([name, qty]) => `${escapeHtml(name)} × ${qty}`).join('<br>');
         bagsHtml += `
-          <div style="border: 1px solid #fed7aa; background:#fffbeb; border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size:13px;">
-            <div style="display:flex; justify-content:space-between; font-weight:bold; color:#9a3412; border-bottom:1px solid #fde68a; padding-bottom:4px; margin-bottom:6px;">
+          <div style="border: 1.5px solid #fed7aa; background:#fffbeb; border-radius: 10px; padding: 12px; margin-bottom: 10px; font-size:16px;">
+            <div style="display:flex; justify-content:space-between; font-weight:800; font-size:17px; color:#9a3412; border-bottom:1.5px solid #fde68a; padding-bottom:6px; margin-bottom:8px;">
               <span>🛍️ 袋子 #${idx + 1} (${bag.count} 份)</span>
               <span>$${bag.bagTotal}</span>
             </div>
-            <div style="color:#475569; line-height:1.4;">${itemListStr}</div>
+            <div style="color:#334155; line-height:1.5; font-weight:600;">${itemListStr}</div>
           </div>
         `;
       });
 
       const captureHtml = `
-        <div style="border-bottom: 2px dashed #cbd5e1; padding-bottom: 14px; margin-bottom: 14px;">
-          <div style="font-size: 20px; font-weight: 800; color: #0f172a;">🛍️ 分袋叫餐明細 - ${escapeHtml(storeName)}</div>
-          ${stMeta.phone ? `<div style="font-size: 13px; color: #64748b; margin-top: 4px;">📞 電話：${escapeHtml(stMeta.phone)}</div>` : ''}
-          <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">🕒 產出時間：${new Date().toLocaleString('zh-TW', { hour12: false })}</div>
+        <div style="border-bottom: 2px dashed #cbd5e1; padding-bottom: 16px; margin-bottom: 16px;">
+          <div style="font-size: 26px; font-weight: 800; color: #0f172a;">🛍️ 分袋叫餐明細 - ${escapeHtml(storeName)}</div>
+          ${stMeta.phone ? `<div style="font-size: 16px; font-weight:600; color: #475569; margin-top: 6px;">📞 電話：${escapeHtml(stMeta.phone)}</div>` : ''}
+          <div style="font-size: 14px; color: #64748b; margin-top: 4px;">🕒 產出時間：${new Date().toLocaleString('zh-TW', { hour12: false })}</div>
         </div>
-        <div style="margin-bottom:14px;">${bagsHtml}</div>
-        <div style="border-top:2px solid #0f172a; padding-top:10px; display:flex; justify-content:space-between; align-items:baseline;">
-          <span style="font-size:15px; font-weight:bold; color:#334155;">共計袋數：${Object.keys(userBags).length} 袋</span>
-          <span style="font-size:18px; font-weight:bold; color:#e11d48;">總金額：$${storeTotal}</span>
+        <div style="margin-bottom:16px;">${bagsHtml}</div>
+        <div style="border-top:3px solid #0f172a; padding-top:12px; display:flex; justify-content:space-between; align-items:baseline;">
+          <span style="font-size:18px; font-weight:800; color:#334155;">共計袋數：${Object.keys(userBags).length} 袋</span>
+          <span style="font-size:24px; font-weight:800; color:#e11d48;">總金額：$${storeTotal}</span>
         </div>
       `;
 
