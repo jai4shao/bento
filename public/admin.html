@@ -35,13 +35,13 @@
           <h1 class="text-xl sm:text-2xl font-bold text-slate-800">📋 便當核銷與叫餐後台</h1>
           <span id="lockStatusBadge" class="text-xs font-bold px-2.5 py-1 rounded-full border">載入中...</span>
         </div>
-        <p class="text-xs text-slate-500 mt-1">電話下單後請截止點餐；收款支援手機卡片對帳與大鈔找零校正</p>
+        <p class="text-xs text-slate-500 mt-1">電話下單後請截止點餐；主揪核准之轉帳金額會自動帶入實收與核銷</p>
+        <p class="text-xs text-slate-500 mt-1">送暨南大學，綜合大樓B棟</p>
       </div>
       <div class="flex items-center flex-wrap gap-2">
         <button id="toggleLockBtn" onclick="toggleOrderLock()" class="text-xs font-bold px-3.5 py-2 rounded-xl border shadow-sm transition">
           切換狀態中...
         </button>
-        <!-- 🌟 價格即時同步校正按鈕 -->
         <button onclick="realignAllOrderPrices()" class="text-xs font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-xl border border-blue-200 transition" title="依據店家最新菜單價格重新校正今日未結清訂單">
           🔄 校正菜單價格
         </button>
@@ -70,12 +70,12 @@
       <div id="bundledStoresContainer" class="space-y-3 pt-2"></div>
     </section>
 
-    <!-- 2. 個人對帳核銷區塊 -->
+    <!-- 2. 個人對帳核銷區塊 (自動帶入轉帳金額與沖帳狀態) -->
     <section class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 space-y-4">
       <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-1 border-b pb-3">
         <div>
-          <h2 class="text-base sm:text-lg font-bold text-slate-800">🧾 個人對帳與找零核銷</h2>
-          <p class="text-xs text-slate-500 mt-0.5">點擊卡片展開點購明細；拿大鈔找零後點擊打勾自動校正實收</p>
+          <h2 class="text-base sm:text-lg font-bold text-slate-800">🧾 個人對帳與自動核銷</h2>
+          <p class="text-xs text-slate-500 mt-0.5">線上轉帳經主揪確認會自動帶入實收；支援大鈔找零與手動校正</p>
         </div>
         <div id="userCollectProgress" class="text-xs font-bold text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 self-start sm:self-auto">
           收款進度：計算中...
@@ -153,7 +153,6 @@
     let isCurrentlyLocked = false;
     let expandedUsers = {};
 
-    // 🌟 全面加入防快取機制
     async function loadAdminData() {
       try {
         const timestamp = Date.now();
@@ -187,7 +186,6 @@
       }
     }
 
-    // 🌟 一鍵依最新菜單重新校準訂單金額
     async function realignAllOrderPrices() {
       if (!confirm('確定要依照「目前店家菜單的最新價格」，重新校正所有未結清訂單的金額嗎？\n\n（這能防止店家臨時調價後造成前台與核銷金額不一致）')) return;
 
@@ -406,7 +404,7 @@
       });
     }
 
-    // 3. 手機卡片化個人核銷清單
+    // 3. 🌟 個人對帳與自動帶入核銷清單
     function renderUserCards(orders) {
       const container = document.getElementById('userCardsList');
       if (!orders || orders.length === 0) {
@@ -421,20 +419,27 @@
           usersMap[o.user_name] = {
             userName: o.user_name,
             totalPrice: 0,
-            paidAmount: Number(o.paid_amount || 0),
+            totalPaidAmount: 0, // 🌟 統計此人所有品項累計實收
             isAllPaid: true,
+            hasTransferNote: false,
             items: []
           };
         }
         usersMap[o.user_name].totalPrice += Number(o.price || 0);
+        usersMap[o.user_name].totalPaidAmount += Number(o.paid_amount || 0);
         if (!o.is_paid) usersMap[o.user_name].isAllPaid = false;
+        if (o.note && o.note.includes('[轉帳')) usersMap[o.user_name].hasTransferNote = true;
         usersMap[o.user_name].items.push(o);
       });
 
       const userList = Object.values(usersMap);
 
       let totalPaidCount = 0;
-      userList.forEach(u => { if (u.isAllPaid) totalPaidCount++; });
+      userList.forEach(u => { 
+        // 若總實收 >= 應收，視為結清
+        if (u.isAllPaid || u.totalPaidAmount >= u.totalPrice) totalPaidCount++; 
+      });
+
       document.getElementById('userCollectProgress').innerHTML = `
         收款進度：<span class="${totalPaidCount === userList.length ? 'text-emerald-600 font-bold' : 'text-blue-600 font-bold'}">${totalPaidCount} / ${userList.length} 人結清</span>
       `;
@@ -442,9 +447,9 @@
       let html = '';
       userList.forEach((u) => {
         const isExpanded = !!expandedUsers[u.userName];
-        const isPaid = u.isAllPaid;
-        const paidAmount = u.paidAmount;
-        const change = (paidAmount > 0) ? (paidAmount - u.totalPrice) : 0;
+        const isPaid = u.isAllPaid || (u.totalPaidAmount >= u.totalPrice && u.totalPrice > 0);
+        const paidAmount = u.totalPaidAmount;
+        const diff = paidAmount - u.totalPrice;
 
         let statusBadge = '';
         let cardBorder = isPaid ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200 bg-white';
@@ -452,7 +457,9 @@
         if (isPaid) {
           statusBadge = '<span class="text-[11px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">✓ 已結清</span>';
         } else if (paidAmount > u.totalPrice) {
-          statusBadge = `<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">需找 $${change}</span>`;
+          statusBadge = `<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">需找 $${diff}</span>`;
+        } else if (paidAmount > 0) {
+          statusBadge = `<span class="text-[11px] font-bold text-blue-700 bg-blue-100 border border-blue-300 px-2 py-0.5 rounded-full">已收 $${paidAmount} (欠 $${Math.abs(diff)})</span>`;
         } else {
           statusBadge = '<span class="text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">未付款</span>';
         }
@@ -461,10 +468,11 @@
           <div class="border rounded-2xl p-3.5 shadow-2xs transition space-y-3 ${cardBorder}">
             
             <div class="flex items-center justify-between cursor-pointer select-none" onclick="toggleUserExpand('${u.userName}')">
-              <div class="flex items-center space-x-2.5">
+              <div class="flex items-center space-x-2.5 flex-wrap gap-y-1">
                 <span class="text-sm sm:text-base font-bold text-slate-800">${u.userName}</span>
                 <span class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-medium">${u.items.length} 份</span>
                 ${statusBadge}
+                ${u.hasTransferNote ? '<span class="text-[10px] bg-indigo-100 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-bold">📱 轉帳入帳</span>' : ''}
               </div>
               <div class="flex items-center space-x-2">
                 <span class="text-base sm:text-lg font-bold ${isPaid ? 'text-emerald-700' : 'text-slate-800'}">$${u.totalPrice}</span>
@@ -475,13 +483,14 @@
             <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
               <div class="flex items-center space-x-2">
                 <span class="text-slate-500 font-semibold">實收：$</span>
+                <!-- 🌟 自動帶入已繳金額 -->
                 <input type="number" value="${paidAmount > 0 ? paidAmount : ''}" placeholder="${u.totalPrice}"
                   onblur="onUserPaidAmountInput('${u.userName}', ${u.totalPrice}, this.value)"
                   class="w-20 text-center font-bold text-sm border border-slate-300 rounded-xl py-1 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
                 
                 ${!isPaid && paidAmount > u.totalPrice ? `
                   <button onclick="confirmChangeAndPay('${u.userName}', ${u.totalPrice})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded-lg text-xs shadow-xs transition animate-pulse">
-                    ✓ 找完 $${change}，按此結清
+                    ✓ 找完 $${diff}，按此結清
                   </button>
                 ` : ''}
               </div>
@@ -496,20 +505,28 @@
             ${isExpanded ? `
               <div class="pt-2 border-t border-slate-100 space-y-1.5">
                 <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">點購內容明細</div>
-                ${u.items.map(it => `
-                  <div class="flex items-center justify-between bg-slate-50 border border-slate-200/80 rounded-xl p-2 text-xs">
-                    <div class="truncate mr-2">
-                      <span class="text-blue-600 font-semibold">[${it.store_name || '未指定'}]</span>
-                      <span class="font-bold text-slate-800">${it.item_name}</span>
-                      ${it.note ? `<span class="text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[10px] ml-1">${it.note}</span>` : ''}
-                      <span class="text-slate-500 font-bold ml-1.5">$${it.price}</span>
+                ${u.items.map(it => {
+                  const isTransfer = it.note && it.note.includes('[轉帳');
+                  return `
+                    <div class="flex items-center justify-between bg-slate-50 border border-slate-200/80 rounded-xl p-2 text-xs">
+                      <div class="truncate mr-2">
+                        <span class="text-blue-600 font-semibold">[${it.store_name || '未指定'}]</span>
+                        <span class="font-bold text-slate-800">${it.item_name}</span>
+                        ${it.note ? `
+                          <span class="text-[10px] px-1.5 py-0.5 rounded ml-1 font-semibold ${isTransfer ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'text-amber-800 bg-amber-50 border border-amber-200'}">
+                            ${it.note}
+                          </span>
+                        ` : ''}
+                        <span class="text-slate-500 font-bold ml-1.5">$${it.price}</span>
+                        ${it.paid_amount > 0 ? `<span class="text-emerald-600 font-bold ml-1">(已抵$${it.paid_amount})</span>` : ''}
+                      </div>
+                      <div class="space-x-1 shrink-0">
+                        <button onclick="openEditModal(${it.id})" class="text-xs text-blue-600 hover:text-blue-800 font-semibold px-2 py-0.5 rounded bg-blue-50 border border-blue-200">修改</button>
+                        <button onclick="deleteOrder(${it.id})" class="text-xs text-red-600 hover:text-red-800 font-semibold px-2 py-0.5 rounded bg-red-50 border border-red-200">刪除</button>
+                      </div>
                     </div>
-                    <div class="space-x-1 shrink-0">
-                      <button onclick="openEditModal(${it.id})" class="text-xs text-blue-600 hover:text-blue-800 font-semibold px-2 py-0.5 rounded bg-blue-50 border border-blue-200">修改</button>
-                      <button onclick="deleteOrder(${it.id})" class="text-xs text-red-600 hover:text-red-800 font-semibold px-2 py-0.5 rounded bg-red-50 border border-red-200">刪除</button>
-                    </div>
-                  </div>
-                `).join('')}
+                  `;
+                }).join('')}
               </div>
             ` : ''}
 
@@ -527,8 +544,8 @@
 
     async function onUserPaidAmountInput(userName, totalPrice, val) {
       const paid = Number(val || 0);
-      if (paid === totalPrice) {
-        await updateOrderPaidStatus(userName, totalPrice, 1);
+      if (paid >= totalPrice && totalPrice > 0) {
+        await updateOrderPaidStatus(userName, paid, 1);
       } else {
         await updateOrderPaidStatus(userName, paid, 0);
       }
@@ -555,7 +572,7 @@
     }
 
     // ==========================================
-    // 📸 產生截圖分享核心邏輯 (純品項與備註，隱藏人名)
+    // 📸 產生截圖分享核心邏輯
     // ==========================================
     async function captureStoreSummaryImage(storeName) {
       const stMeta = allStoresList.find(s => s.name === storeName) || {};
@@ -611,7 +628,6 @@
       await renderAndShowCanvas(captureHtml, `${storeName}_叫餐明細`);
     }
 
-    // 📸 分袋清單分享圖卡 (袋號取代個人姓名)
     async function captureBundledStoreImage(storeName) {
       const stMeta = allStoresList.find(s => s.name === storeName) || {};
       const storeOrders = rawOrders.filter(o => o.store_name === storeName);
@@ -699,7 +715,6 @@
       })[m]);
     }
 
-    // 修改彈窗邏輯
     function openEditModal(orderId) {
       const order = rawOrders.find(o => o.id === orderId);
       if (!order) return;
