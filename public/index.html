@@ -144,7 +144,7 @@
           <h2 class="text-lg font-bold text-slate-800 flex items-center gap-1.5">
             <span>💳</span> 本日主揪收款區
           </h2>
-          <p class="text-xs text-slate-500 mt-0.5">多團收款獨立展示；卡片滿 6 天系統將自動清理下架</p>
+          <p class="text-xs text-slate-500 mt-0.5">多團收款獨立展示；卡片滿 3 天系統將自動清理下架</p>
         </div>
         <button onclick="openPaymentModal()" class="text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-2 rounded-xl transition self-start sm:self-auto">
           ➕ 新增我的收款項目
@@ -305,7 +305,7 @@
         <div class="bg-amber-50 border border-amber-200 p-2.5 rounded-xl space-y-1">
           <label class="block font-bold text-amber-900">卡片管理密碼 * (防止被他人刪除)</label>
           <input type="password" id="payPassword" placeholder="設定一組密碼，日後刪除卡片時核對" class="w-full border border-amber-300 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:ring-2 focus:ring-amber-500 text-xs">
-          <p class="text-[10px] text-amber-700">滿 6 天系統會自動清理此卡片；若提前收齊可憑此密碼刪除。</p>
+          <p class="text-[10px] text-amber-700">滿 3 天系統會自動清理此卡片；若提前收齊可憑此密碼刪除。</p>
         </div>
       </div>
 
@@ -1033,7 +1033,7 @@
 
               <div class="text-[10px] text-slate-400 border-t border-slate-200/60 pt-2 flex justify-between">
                 <span>建立時間：${c.created_at.slice(5, 16)}</span>
-                <span>6 天後自動刪除</span>
+                <span>3 天後自動刪除</span>
               </div>
             </div>
           `;
