@@ -9,25 +9,29 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css">
   <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
   <style>
+    /* 確保全域字體以使用者裝置設定為基準，設定基礎字體稍大以利手機閱讀 */
     html {
-      font-size: 100%;
+      font-size: 105%;
       -webkit-text-size-adjust: 100%;
     }
 
+    /* 🌟 強制全站「最小字體」不得小於 1rem (16px)，徹底解決店員看不清楚的問題 */
     .text-xs,
+    .text-sm,
     [class*="text-[10px]"],
     [class*="text-[11px]"] {
-      font-size: 0.875rem !important;
-      line-height: 1.25rem !important;
+      font-size: 1rem !important;
+      line-height: 1.5rem !important;
     }
 
+    /* 提升輸入框、按鈕與選單在手機上的易讀性與點擊手感 */
     button, select, input {
-      font-size: 1rem !important;
+      font-size: 1.05rem !important;
     }
 
     .intro-footer-nav {
-      margin-top: 32px;
-      margin-bottom: 24px;
+      margin-top: 36px;
+      margin-bottom: 28px;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -36,15 +40,15 @@
     .btn-intro-link {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       background: #ffffff;
       color: #44403c;
       border: 1.5px solid #ebdccb;
-      padding: 10px 22px;
+      padding: 12px 26px;
       border-radius: 999px;
       text-decoration: none;
       font-weight: 700;
-      font-size: 0.95rem;
+      font-size: 1.05rem;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
       transition: all 0.2s ease;
     }
@@ -62,36 +66,36 @@
     }
   </style>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800 p-4 md:p-8">
+<body class="bg-slate-100 min-h-screen text-slate-800 p-3 sm:p-6 md:p-8">
   <div class="max-w-4xl mx-auto space-y-6">
 
     <!-- 頂部卡片 -->
-    <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+    <header class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
       <div>
         <div class="flex items-center flex-wrap gap-2.5">
-          <h1 class="text-2xl font-bold text-slate-800">🍱 今日便當 / 飲料登記</h1>
-          <span id="orderStatusBadge" class="text-xs font-bold px-2.5 py-1 rounded-full border bg-slate-100 text-slate-500 border-slate-200">
+          <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">🍱 今日便當 / 飲料登記</h1>
+          <span id="orderStatusBadge" class="text-xs font-bold px-3 py-1 rounded-full border bg-slate-100 text-slate-500 border-slate-200">
             載入狀態中...
           </span>
         </div>
-        <p class="text-xs text-slate-500 mt-1">選定姓名後挑選餐點，您可自由修改或取消自己的登記紀錄</p>
+        <p class="text-xs text-slate-500 mt-1.5 font-medium">選定姓名後挑選餐點，您可自由修改或取消自己的登記紀錄</p>
       </div>
-      <div class="space-x-2">
-        <a href="/admin" class="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3.5 py-2 rounded-xl border border-blue-200 transition">訂單核銷後台</a>
-        <a href="/store_admin" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-200 transition">店家管理</a>
+      <div class="flex items-center space-x-2 shrink-0">
+        <a href="/admin" class="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl border border-blue-200 transition">訂單核銷後台</a>
+        <a href="/store_admin" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl border border-slate-200 transition">店家管理</a>
       </div>
     </header>
 
     <!-- 點餐操作卡片 -->
-    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-5">
+    <section class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 space-y-5">
       <!-- 1. 人員選擇 -->
       <div>
-        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">1. 選擇點餐姓名</label>
+        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">1. 選擇點餐姓名</label>
         <div class="flex gap-2">
-          <select id="userSelect" onchange="onUserSelectChange()" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 bg-slate-50 focus:bg-white text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500">
+          <select id="userSelect" onchange="onUserSelectChange()" class="w-full border border-slate-300 rounded-xl px-4 py-3 bg-slate-50 focus:bg-white text-base font-semibold outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">-- 請選擇您的名字 --</option>
           </select>
-          <button onclick="addNewUser()" class="whitespace-nowrap bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition">
+          <button onclick="addNewUser()" class="whitespace-nowrap bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-3 rounded-xl transition">
             ➕ 新增人員
           </button>
         </div>
@@ -99,7 +103,7 @@
 
       <!-- 2. 店家按鈕區 -->
       <div>
-        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">2. 點選店家瀏覽菜單</label>
+        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">2. 點選店家瀏覽菜單</label>
         <div id="storeButtonsContainer" class="flex flex-wrap gap-2.5"></div>
       </div>
 
@@ -107,7 +111,7 @@
       <div class="border-t pt-4">
         <div class="flex justify-between items-center mb-2">
           <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">🛒 待送出點餐清單</label>
-          <span id="cartTotalPrice" class="text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg">小計：$0</span>
+          <span id="cartTotalPrice" class="text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1 rounded-lg">小計：$0</span>
         </div>
         
         <div id="cartContainer" class="space-y-2 mb-4">
@@ -116,33 +120,33 @@
           </p>
         </div>
 
-        <button onclick="submitBatchOrder()" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow transition text-sm">
+        <button onclick="submitBatchOrder()" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow transition text-base">
           確認送出全部點餐
         </button>
       </div>
     </section>
 
     <!-- 今日已登記清單 -->
-    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-lg font-bold text-slate-800">📋 訂餐清單</h2>
+    <section class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200">
+      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-1 mb-4">
+        <h2 class="text-xl font-bold text-slate-800">📋 訂餐清單</h2>
         <span class="text-xs text-slate-500 font-medium">💡 只有您自己的餐點才會顯示操作按鈕</span>
       </div>
-      <div id="ordersContainer" class="overflow-x-auto text-sm">
+      <div id="ordersContainer" class="overflow-x-auto text-base">
         <p class="text-slate-400 py-4 text-center">載入清單中...</p>
       </div>
     </section>
 
     <!-- 💳 本日主揪收款區 -->
-    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
+    <section class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 space-y-4">
       <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-3">
         <div>
-          <h2 class="text-lg font-bold text-slate-800 flex items-center gap-1.5">
+          <h2 class="text-xl font-bold text-slate-800 flex items-center gap-1.5">
             <span>💳</span> 本日主揪收款專區
           </h2>
-          <p class="text-xs text-slate-500 mt-0.5">點擊卡片「回報匯款」送出末五碼，主揪可憑密碼查帳並一鍵自動沖帳</p>
+          <p class="text-xs text-slate-500 mt-1 font-medium">點擊卡片「回報匯款」送出末五碼，主揪可憑密碼查帳並一鍵自動沖帳</p>
         </div>
-        <button onclick="openPaymentModal()" class="text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-2 rounded-xl transition self-start sm:self-auto">
+        <button onclick="openPaymentModal()" class="text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-4 py-2.5 rounded-xl transition self-start sm:self-auto">
           ➕ 新增我的收款項目
         </button>
       </div>
@@ -156,22 +160,22 @@
   </div>
 
   <!-- 🏪 菜單選擇彈窗 Modal -->
-  <div id="menuModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+  <div id="menuModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 z-50">
     <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
       <div class="p-4 sm:p-5 border-b flex justify-between items-center bg-slate-50">
         <div>
-          <h3 id="modalStoreTitle" class="text-lg font-bold text-slate-800">店家菜單</h3>
-          <p id="modalStoreSubtitle" class="text-xs text-slate-500 mt-0.5"></p>
+          <h3 id="modalStoreTitle" class="text-xl font-bold text-slate-800">店家菜單</h3>
+          <p id="modalStoreSubtitle" class="text-xs text-slate-500 mt-0.5 font-medium"></p>
         </div>
-        <button onclick="closeMenuModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2 leading-none">&times;</button>
+        <button onclick="closeMenuModal()" class="text-slate-400 hover:text-slate-600 text-3xl font-bold px-2 leading-none">&times;</button>
       </div>
       <div class="p-3 border-b bg-white">
-        <input type="text" id="menuSearchInput" oninput="onMenuSearch()" placeholder="🔍 搜尋該店品項名稱..." class="w-full text-xs border border-slate-300 rounded-xl px-3.5 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+        <input type="text" id="menuSearchInput" oninput="onMenuSearch()" placeholder="🔍 搜尋該店品項名稱..." class="w-full text-sm border border-slate-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500">
       </div>
-      <div id="modalMenuGrid" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm flex-1"></div>
-      <div class="p-3 border-t bg-slate-50 flex justify-between items-center">
+      <div id="modalMenuGrid" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-3 text-base flex-1"></div>
+      <div class="p-4 border-t bg-slate-50 flex justify-between items-center">
         <span id="modalCartCount" class="text-xs font-semibold text-slate-600">已選 0 份</span>
-        <button onclick="closeMenuModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2 rounded-xl transition">
+        <button onclick="closeMenuModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-6 py-2.5 rounded-xl transition">
           完成挑選，返回清單
         </button>
       </div>
@@ -179,196 +183,194 @@
   </div>
 
   <!-- 🥤 規格備註選擇彈窗 Modal -->
-  <div id="itemOptionModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+  <div id="itemOptionModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 z-50">
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-5 space-y-4">
       <div class="flex justify-between items-center border-b pb-3">
         <div>
-          <h3 id="optionItemName" class="text-base font-bold text-slate-800">餐點規格</h3>
-          <p id="optionItemPrice" class="text-xs text-blue-600 font-bold mt-0.5">$0</p>
+          <h3 id="optionItemName" class="text-lg font-bold text-slate-800">餐點規格</h3>
+          <p id="optionItemPrice" class="text-base text-blue-600 font-bold mt-0.5">$0</p>
         </div>
-        <button onclick="closeOptionModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+        <button onclick="closeOptionModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
       </div>
 
       <div id="sugarSection" class="space-y-1.5">
         <label class="text-xs font-bold text-slate-600">糖量選擇</label>
-        <div class="grid grid-cols-5 gap-1 text-xs" id="sugarGroup">
-          <button type="button" onclick="selectSugar('無糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">無糖</button>
-          <button type="button" onclick="selectSugar('微糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">微糖</button>
-          <button type="button" onclick="selectSugar('半糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">半糖</button>
-          <button type="button" onclick="selectSugar('少糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">少糖</button>
-          <button type="button" onclick="selectSugar('正常糖')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">正常糖</button>
+        <div class="grid grid-cols-5 gap-1.5 text-xs" id="sugarGroup">
+          <button type="button" onclick="selectSugar('無糖')" class="spec-btn border border-slate-300 py-2 rounded-lg text-slate-700 hover:bg-blue-50 font-bold">無糖</button>
+          <button type="button" onclick="selectSugar('微糖')" class="spec-btn border border-slate-300 py-2 rounded-lg text-slate-700 hover:bg-blue-50 font-bold">微糖</button>
+          <button type="button" onclick="selectSugar('半糖')" class="spec-btn border border-slate-300 py-2 rounded-lg text-slate-700 hover:bg-blue-50 font-bold">半糖</button>
+          <button type="button" onclick="selectSugar('少糖')" class="spec-btn border border-slate-300 py-2 rounded-lg text-slate-700 hover:bg-blue-50 font-bold">少糖</button>
+          <button type="button" onclick="selectSugar('正常糖')" class="spec-btn border border-slate-300 py-2 rounded-lg text-slate-700 hover:bg-blue-50 font-bold">正常糖</button>
         </div>
       </div>
 
       <div id="iceSection" class="space-y-1.5">
         <label class="text-xs font-bold text-slate-600">冰量選擇</label>
-        <div class="grid grid-cols-4 sm:grid-cols-7 gap-1 text-[11px]" id="iceGroup">
-          <button type="button" onclick="selectIce('熱')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">熱</button>
-          <button type="button" onclick="selectIce('常溫')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">常溫</button>
-          <button type="button" onclick="selectIce('去冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">去冰</button>
-          <button type="button" onclick="selectIce('微冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">微冰</button>
-          <button type="button" onclick="selectIce('少冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">少冰</button>
-          <button type="button" onclick="selectIce('正常冰')" class="spec-btn border border-slate-300 py-1.5 rounded-lg text-slate-700 hover:bg-blue-50">正常冰</button>
+        <div class="grid grid-cols-4 sm:grid-cols-6 gap-1.5 text-xs" id="iceGroup">
+          <button type="button" onclick="selectIce('熱')" class="spec-btn border border-slate-300 py-2 rounded-lg text-slate-700 hover:bg-blue-50 font-bold">熱</button>
+          <button type="button" onclick="selectIce('去冰')" class="spec-btn border border-slate-300 py-2 rounded-lg text-slate-700 hover:bg-blue-50 font-bold">去冰</button>
+          <button type="button" onclick="selectIce('微冰')" class="spec-btn border border-slate-300 py-2 rounded-lg text-slate-700 hover:bg-blue-50 font-bold">微冰</button>
+          <button type="button" onclick="selectIce('少冰')" class="spec-btn border border-slate-300 py-2 rounded-lg text-slate-700 hover:bg-blue-50 font-bold">少冰</button>
+          <button type="button" onclick="selectIce('常溫')" class="spec-btn border border-slate-300 py-2 rounded-lg text-slate-700 hover:bg-blue-50 font-bold">常溫</button>
+          <button type="button" onclick="selectIce('正常冰')" class="spec-btn border border-slate-300 py-2 rounded-lg text-slate-700 hover:bg-blue-50 font-bold">正常冰</button>
         </div>
       </div>
 
       <div>
         <label class="text-xs font-bold text-slate-600 mb-1 block">其他備註需求</label>
-        <input type="text" id="customNoteInput" placeholder="如：少飯、不辣、加珍珠等" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+        <input type="text" id="customNoteInput" placeholder="如：少飯、不辣、加珍珠等" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500">
       </div>
 
       <div class="flex justify-end space-x-2 pt-2 border-t">
         <button onclick="closeOptionModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
-        <button onclick="confirmAddToCart()" class="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">加入清單</button>
+        <button onclick="confirmAddToCart()" class="px-6 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">加入清單</button>
       </div>
     </div>
   </div>
 
   <!-- ✏️ 前台個人自我修改已點餐點 Modal -->
-  <div id="selfEditModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+  <div id="selfEditModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 z-50">
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-5 space-y-4">
       <div class="flex justify-between items-center border-b pb-3">
-        <h3 class="text-base font-bold text-slate-800">修改我的點餐</h3>
-        <button onclick="closeSelfEditModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+        <h3 class="text-lg font-bold text-slate-800">修改我的點餐</h3>
+        <button onclick="closeSelfEditModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
       </div>
 
       <div class="space-y-3 text-xs">
         <div>
           <label class="block font-semibold text-slate-700 mb-1">更換餐點品項</label>
-          <select id="selfEditItemSelect" onchange="onSelfEditItemChange()" class="w-full border border-slate-300 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-blue-500 text-xs">
+          <select id="selfEditItemSelect" onchange="onSelfEditItemChange()" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold">
           </select>
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">金額 ($)</label>
-          <input type="number" id="selfEditPrice" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-700">
+          <input type="number" id="selfEditPrice" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800 text-sm">
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">備註需求 (如微糖微冰/少飯)</label>
-          <input type="text" id="selfEditNote" placeholder="例如：微糖微冰、少飯" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+          <input type="text" id="selfEditNote" placeholder="例如：微糖微冰、少飯" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm">
         </div>
       </div>
 
       <div class="flex justify-end space-x-2 pt-3 border-t">
         <button onclick="closeSelfEditModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
-        <button id="saveSelfEditBtn" onclick="saveSelfEdit()" class="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">儲存修改</button>
+        <button id="saveSelfEditBtn" onclick="saveSelfEdit()" class="px-6 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">儲存修改</button>
       </div>
     </div>
   </div>
 
   <!-- ➕ 新增收款項目 Modal (支援店家綁定) -->
-  <div id="paymentModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+  <div id="paymentModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 z-50">
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-5 space-y-3.5 max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center border-b pb-2">
-        <h3 class="text-base font-bold text-slate-800">建立主揪收款卡片</h3>
-        <button onclick="closePaymentModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+        <h3 class="text-lg font-bold text-slate-800">建立主揪收款卡片</h3>
+        <button onclick="closePaymentModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
       </div>
 
       <div class="space-y-3 text-xs">
         <div>
           <label class="block font-semibold text-slate-700 mb-1">主揪姓名 *</label>
-          <input type="text" id="payInitiatorName" placeholder="如：王大明" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500">
+          <input type="text" id="payInitiatorName" placeholder="如：王大明" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-semibold">
         </div>
 
-        <!-- 🌟 核心：綁定此卡片負責的店家 -->
-        <div class="bg-emerald-50/60 border border-emerald-200 rounded-xl p-2.5 space-y-1.5">
+        <div class="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3 space-y-1.5">
           <label class="block font-bold text-emerald-900">📌 選擇此卡片負責收款的店家 * (可複選)</label>
-          <p class="text-[11px] text-slate-500">系統將依勾選店家，自動為同仁試算該付金額並正確沖帳</p>
-          <div id="targetStoresCheckboxList" class="space-y-1 pt-1 max-h-32 overflow-y-auto"></div>
+          <p class="text-xs text-slate-500">系統將依勾選店家，自動為同仁試算該付金額並正確沖帳</p>
+          <div id="targetStoresCheckboxList" class="space-y-1.5 pt-1.5 max-h-36 overflow-y-auto"></div>
         </div>
 
         <div>
           <label class="block font-semibold text-slate-700 mb-1">開團/收款標題 *</label>
-          <input type="text" id="payTitle" placeholder="如：美味便當 收款" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500">
+          <input type="text" id="payTitle" placeholder="如：美味便當 收款" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 text-sm">
         </div>
         
-        <!-- 📸 圖片上傳與裁切預覽區 -->
         <div>
           <label class="block font-semibold text-slate-700 mb-1">收款 QR Code 圖片 (手機全螢幕截圖可直接裁切)</label>
-          <input type="file" id="payQrFileInput" accept="image/*" onchange="initCrop(event)" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-emerald-50 file:text-emerald-700 file:font-semibold hover:file:bg-emerald-100 cursor-pointer">
+          <input type="file" id="payQrFileInput" accept="image/*" onchange="initCrop(event)" class="w-full text-xs text-slate-500 file:mr-2 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:bg-emerald-50 file:text-emerald-700 file:font-semibold hover:file:bg-emerald-100 cursor-pointer">
           
-          <div id="imagePreviewBox" class="mt-2.5 hidden flex items-center gap-3 bg-slate-50 border border-slate-200 p-2 rounded-xl">
-            <img id="compressedImagePreview" src="" class="w-16 h-16 object-contain bg-white border border-slate-300 rounded-lg p-1">
+          <div id="imagePreviewBox" class="mt-2.5 hidden flex items-center gap-3 bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
+            <img id="compressedImagePreview" src="" class="w-20 h-20 object-contain bg-white border border-slate-300 rounded-lg p-1">
             <div>
               <span class="text-xs font-bold text-emerald-700">✓ QR Code 裁切完成</span>
-              <p id="imageSizeIndicator" class="text-[11px] text-slate-400 mt-0.5">預估體積：約 25 KB</p>
-              <button type="button" onclick="clearUploadImage()" class="text-xs text-red-500 hover:underline mt-1">✕ 重新選圖</button>
+              <p id="imageSizeIndicator" class="text-xs text-slate-400 mt-0.5">預估體積：約 25 KB</p>
+              <button type="button" onclick="clearUploadImage()" class="text-xs text-red-500 hover:underline mt-1 font-semibold">✕ 重新選圖</button>
             </div>
           </div>
         </div>
 
         <div>
           <label class="block font-semibold text-slate-700 mb-1">App 轉帳超連結 / 帳號 (選填)</label>
-          <input type="text" id="payAppLink" placeholder="貼入 LINE Pay 轉帳連結 或 銀行代碼+帳號" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500">
+          <input type="text" id="payAppLink" placeholder="貼入 LINE Pay 轉帳連結 或 銀行代碼+帳號" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 text-sm">
         </div>
 
         <div>
           <label class="block font-semibold text-slate-700 mb-1">收款備註 (選填)</label>
-          <input type="text" id="payNote" placeholder="如：轉帳請附姓名/學號" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500">
+          <input type="text" id="payNote" placeholder="如：轉帳請附姓名/學號" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 text-sm">
         </div>
 
-        <div class="bg-amber-50 border border-amber-200 p-2.5 rounded-xl space-y-1">
+        <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-1">
           <label class="block font-bold text-amber-900">卡片管理密碼 * (查帳與刪除時核對)</label>
-          <input type="password" id="payPassword" placeholder="設定一組密碼，查帳對帳與刪除卡片時使用" class="w-full border border-amber-300 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:ring-2 focus:ring-amber-500 text-xs">
-          <p class="text-[10px] text-amber-700">滿 6 天系統會自動清理此卡片；開團期間憑此密碼核准匯款。</p>
+          <input type="password" id="payPassword" placeholder="設定一組密碼，查帳對帳與刪除卡片時使用" class="w-full border border-amber-300 rounded-lg px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-amber-500 text-sm font-semibold">
+          <p class="text-xs text-amber-700">滿 6 天系統會自動清理此卡片；開團期間憑此密碼核准匯款。</p>
         </div>
       </div>
 
       <div class="flex justify-end space-x-2 pt-2 border-t">
         <button onclick="closePaymentModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
-        <button id="submitPayCardBtn" onclick="submitPaymentCard()" class="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow transition">發布收款卡片</button>
+        <button id="submitPayCardBtn" onclick="submitPaymentCard()" class="px-6 py-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow transition">發布收款卡片</button>
       </div>
     </div>
   </div>
 
   <!-- 📝 同仁轉帳回報 Modal -->
-  <div id="notifyModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+  <div id="notifyModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 z-50">
     <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5 space-y-3.5">
       <div class="flex justify-between items-center border-b pb-2">
-        <h3 class="text-base font-bold text-slate-800">📝 回報轉帳資訊</h3>
-        <button onclick="closeNotifyModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+        <h3 class="text-lg font-bold text-slate-800">📝 回報轉帳資訊</h3>
+        <button onclick="closeNotifyModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
       </div>
 
       <div class="space-y-3 text-xs">
         <div>
           <label class="block font-semibold text-slate-700 mb-1">您的名字 *</label>
-          <select id="notifyUserSelect" onchange="onNotifyUserChange()" class="w-full border border-slate-300 rounded-xl px-3 py-2 bg-slate-50 font-bold outline-none focus:ring-2 focus:ring-blue-500"></select>
+          <select id="notifyUserSelect" onchange="onNotifyUserChange()" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 bg-slate-50 font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500"></select>
         </div>
 
-        <div id="notifyCalcBox" class="bg-blue-50 border border-blue-200 rounded-xl p-2.5 space-y-1">
+        <div id="notifyCalcBox" class="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-1">
           <div class="flex justify-between items-center font-bold text-blue-900">
             <span>該主揪團應付總額：</span>
-            <span id="notifyCalculatedAmount" class="text-base text-blue-700">$0</span>
+            <span id="notifyCalculatedAmount" class="text-xl text-blue-700">$0</span>
           </div>
-          <p id="notifyItemsSummary" class="text-[11px] text-blue-600 truncate">計算中...</p>
+          <p id="notifyItemsSummary" class="text-xs text-blue-600 truncate font-medium">計算中...</p>
         </div>
 
         <div>
           <label class="block font-semibold text-slate-700 mb-1">實際轉帳金額 ($) *</label>
-          <input type="number" id="notifyAmountInput" placeholder="請確認金額" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500">
+          <input type="number" id="notifyAmountInput" placeholder="請確認金額" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500">
         </div>
 
         <div>
           <label class="block font-semibold text-slate-700 mb-1">帳號末 5 碼 / 轉帳姓名備註</label>
-          <input type="text" id="notifyTailInput" placeholder="例如：88990 或 LINE Pay 轉帳" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+          <input type="text" id="notifyTailInput" placeholder="例如：88990 或 LINE Pay 轉帳" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm">
         </div>
       </div>
 
       <div class="flex justify-end space-x-2 pt-2 border-t">
         <button onclick="closeNotifyModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
-        <button id="submitNotifyBtn" onclick="submitPaymentNotify()" class="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">送出回報</button>
+        <button id="submitNotifyBtn" onclick="submitPaymentNotify()" class="px-6 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">送出回報</button>
       </div>
     </div>
   </div>
 
   <!-- 🔐 主揪對帳審核清單 Modal -->
-  <div id="auditModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+  <div id="auditModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 z-50">
     <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-5 space-y-3.5 max-h-[85vh] flex flex-col">
       <div class="flex justify-between items-center border-b pb-2">
         <div>
-          <h3 class="text-base font-bold text-slate-800">🔐 主揪查帳與沖帳審核</h3>
+          <h3 class="text-lg font-bold text-slate-800">🔐 主揪查帳與沖帳審核</h3>
           <p id="auditCardTitle" class="text-xs text-emerald-600 font-bold mt-0.5"></p>
         </div>
-        <button onclick="closeAuditModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+        <button onclick="closeAuditModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
       </div>
 
       <div id="auditListContainer" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
@@ -376,17 +378,17 @@
       </div>
 
       <div class="flex justify-end pt-2 border-t">
-        <button onclick="closeAuditModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">關閉</button>
+        <button onclick="closeAuditModal()" class="px-5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">關閉</button>
       </div>
     </div>
   </div>
 
   <!-- ✂️ 獨立的互動裁切 Modal -->
-  <div id="cropperModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex flex-col items-center justify-center p-4 z-[60]">
+  <div id="cropperModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex flex-col items-center justify-center p-3 sm:p-4 z-[60]">
     <div class="bg-white rounded-2xl max-w-md w-full p-4 space-y-3 flex flex-col max-h-[85vh]">
       <div class="flex justify-between items-center border-b pb-2">
-        <h4 class="text-sm font-bold text-slate-800">✂️ 請滑動或縮放，框出 QR Code 區域</h4>
-        <button onclick="cancelCrop()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+        <h4 class="text-base font-bold text-slate-800">✂️ 請滑動或縮放，框出 QR Code 區域</h4>
+        <button onclick="cancelCrop()" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
       </div>
       
       <div class="w-full h-72 sm:h-80 bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center">
@@ -394,10 +396,10 @@
       </div>
 
       <div class="flex justify-between items-center pt-2">
-        <span class="text-[11px] text-slate-400">支援手機手指縮放與拖曳</span>
+        <span class="text-xs text-slate-400">支援手機雙指縮放與拖曳</span>
         <div class="space-x-2">
-          <button type="button" onclick="cancelCrop()" class="px-3 py-1.5 text-xs text-slate-600 bg-slate-100 rounded-xl">取消</button>
-          <button type="button" onclick="confirmCrop()" class="px-4 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow">確認裁切</button>
+          <button type="button" onclick="cancelCrop()" class="px-4 py-2 text-xs text-slate-600 bg-slate-100 rounded-xl font-semibold">取消</button>
+          <button type="button" onclick="confirmCrop()" class="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow">確認裁切</button>
         </div>
       </div>
     </div>
@@ -463,21 +465,21 @@
 
       if (locked) {
         badge.innerHTML = '🔴 今日已截止';
-        badge.className = 'text-xs font-bold px-2.5 py-1 rounded-full border bg-red-50 text-red-700 border-red-200';
+        badge.className = 'text-xs font-bold px-3 py-1 rounded-full border bg-red-50 text-red-700 border-red-200';
         
         if (submitBtn) {
           submitBtn.disabled = true;
           submitBtn.innerText = '🔒 今日已截止點餐 (已向店家下單)';
-          submitBtn.className = 'w-full bg-slate-300 text-slate-500 font-bold py-3 rounded-xl cursor-not-allowed text-sm transition';
+          submitBtn.className = 'w-full bg-slate-300 text-slate-500 font-bold py-3.5 rounded-xl cursor-not-allowed text-base transition';
         }
       } else {
         badge.innerHTML = '🟢 開放登記中';
-        badge.className = 'text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200';
+        badge.className = 'text-xs font-bold px-3 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200';
         
         if (submitBtn) {
           submitBtn.disabled = false;
           submitBtn.innerText = '確認送出全部點餐';
-          submitBtn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow transition text-sm';
+          submitBtn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow transition text-base';
         }
       }
     }
@@ -531,18 +533,18 @@
 
         if (s.is_active == 1) {
           html += `
-            <button onclick="openMenuModal(${s.id})" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-400 shadow-sm transition">
-              <span>${icon}</span>
-              <span class="text-slate-800">${s.name}</span>
-              <span class="text-[10px] text-blue-600 font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">${s.category || '一般'}</span>
+            <button onclick="openMenuModal(${s.id})" class="inline-flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-400 shadow-sm transition">
+              <span class="text-lg">${icon}</span>
+              <span class="text-slate-800 text-sm">${s.name}</span>
+              <span class="text-[11px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-100">${s.category || '一般'}</span>
             </button>
           `;
         } else if (s.is_active == 2) {
           html += `
-            <button onclick="alert('【${s.name}】已提早截止收單囉！無法再加點或更換。')" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed opacity-80 transition">
-              <span>🔒</span>
-              <span class="line-through">${s.name}</span>
-              <span class="text-[10px] bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded border border-red-200">已截止</span>
+            <button onclick="alert('【${s.name}】已提早截止收單囉！無法再加點或更換。')" class="inline-flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-bold border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed opacity-80 transition">
+              <span class="text-lg">🔒</span>
+              <span class="line-through text-sm">${s.name}</span>
+              <span class="text-[11px] bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded border border-red-200">已截止</span>
             </button>
           `;
         }
@@ -591,12 +593,12 @@
 
       let html = '';
       items.forEach(it => {
-        html += '<div onclick="openOptionModal(' + it.id + ')" class="cursor-pointer p-3 rounded-xl border border-slate-200 bg-white hover:border-blue-500 hover:shadow-sm transition flex justify-between items-center">' +
+        html += '<div onclick="openOptionModal(' + it.id + ')" class="cursor-pointer p-3.5 rounded-xl border border-slate-200 bg-white hover:border-blue-500 hover:shadow-sm transition flex justify-between items-center">' +
           '<div class="pr-2">' +
-            '<span class="font-bold text-slate-800 text-xs block">' + it.item_name + '</span>' +
-            '<span class="text-xs font-bold text-blue-600 mt-0.5 block">$' + it.price + '</span>' +
+            '<span class="font-bold text-slate-800 text-base block">' + it.item_name + '</span>' +
+            '<span class="text-base font-bold text-blue-600 mt-0.5 block">$' + it.price + '</span>' +
           '</div>' +
-          '<span class="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg shrink-0">+ 點餐</span>' +
+          '<span class="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg shrink-0">+ 點餐</span>' +
         '</div>';
       });
       container.innerHTML = html;
@@ -732,21 +734,21 @@
         const itemSubtotal = c.price * c.qty;
         sum += itemSubtotal;
 
-        html += '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">' +
+        html += '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">' +
           '<div class="flex-1">' +
-            '<span class="font-semibold text-blue-600">[' + c.storeName + ']</span> ' +
-            '<span class="font-bold text-slate-800">' + c.itemName + '</span> ' +
-            (c.note ? '<span class="text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[11px] ml-1">' + c.note + '</span>' : '') +
-            '<span class="text-slate-500 font-medium ml-1">($' + c.price + '/份)</span>' +
+            '<span class="font-bold text-blue-600">[' + c.storeName + ']</span> ' +
+            '<span class="font-bold text-slate-800 text-base">' + c.itemName + '</span> ' +
+            (c.note ? '<span class="text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-xs ml-1 font-semibold">' + c.note + '</span>' : '') +
+            '<span class="text-slate-500 font-bold ml-1.5">($' + c.price + '/份)</span>' +
           '</div>' +
-          '<div class="flex items-center gap-2">' +
+          '<div class="flex items-center gap-2 shrink-0">' +
             '<div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">' +
-              '<button onclick="updateCartQty(' + idx + ', -1)" class="px-2 py-1 hover:bg-slate-100 font-bold">-</button>' +
-              '<span class="px-2 font-bold text-slate-700">' + c.qty + '</span>' +
-              '<button onclick="updateCartQty(' + idx + ', 1)" class="px-2 py-1 hover:bg-slate-100 font-bold">+</button>' +
+              '<button onclick="updateCartQty(' + idx + ', -1)" class="px-3 py-1 hover:bg-slate-100 font-bold text-base">-</button>' +
+              '<span class="px-3 font-bold text-slate-700 text-base">' + c.qty + '</span>' +
+              '<button onclick="updateCartQty(' + idx + ', 1)" class="px-3 py-1 hover:bg-slate-100 font-bold text-base">+</button>' +
             '</div>' +
-            '<span class="font-bold text-slate-800 min-w-[50px] text-right">$' + itemSubtotal + '</span>' +
-            '<button onclick="removeCartItem(' + idx + ')" class="text-slate-400 hover:text-red-500 text-xs px-1">✕</button>' +
+            '<span class="font-bold text-slate-800 min-w-[60px] text-right text-base">$' + itemSubtotal + '</span>' +
+            '<button onclick="removeCartItem(' + idx + ')" class="text-slate-400 hover:text-red-500 text-sm px-2 font-bold">✕</button>' +
           '</div>' +
         '</div>';
       });
@@ -794,7 +796,7 @@
     function renderOrders(orders) {
       const container = document.getElementById('ordersContainer');
       if (!orders || orders.length === 0) {
-        container.innerHTML = '<p class="text-slate-400 py-6 text-center text-xs">今日尚無任何點餐紀錄</p>';
+        container.innerHTML = '<p class="text-slate-400 py-6 text-center text-sm">今日尚無任何點餐紀錄</p>';
         return;
       }
 
@@ -831,40 +833,41 @@
 
         html += `
           <div class="border rounded-2xl transition duration-200 ${isMe ? 'border-blue-400 bg-blue-50/20 shadow-sm' : 'border-slate-200 bg-white'} overflow-hidden mb-3">
-            <div class="p-4 flex justify-between items-center cursor-pointer select-none" onclick="toggleUserCard('${userName}')">
-              <div class="flex items-center space-x-2">
-                <span class="font-bold text-slate-800 text-sm flex items-center">
+            <div class="p-4 sm:p-5 flex justify-between items-center cursor-pointer select-none" onclick="toggleUserCard('${userName}')">
+              <div class="flex items-center space-x-2.5 flex-wrap">
+                <span class="font-bold text-slate-800 text-base sm:text-lg flex items-center">
                   ${userName}
-                  ${isMe ? '<span class="ml-2 text-[10px] bg-blue-600 text-white font-bold px-2 py-0.5 rounded-full">本人</span>' : ''}
+                  ${isMe ? '<span class="ml-2 text-xs bg-blue-600 text-white font-bold px-2.5 py-0.5 rounded-full">本人</span>' : ''}
                 </span>
-                <span class="text-xs text-slate-400 hidden sm:inline max-w-sm truncate">(${summaryText})</span>
+                <span class="text-xs text-slate-400 hidden sm:inline max-w-sm truncate font-medium">(${summaryText})</span>
               </div>
-              <div class="flex items-center space-x-3">
-                <span class="font-bold text-blue-600 text-sm">$${data.totalAmount}</span>
+              <div class="flex items-center space-x-3 shrink-0">
+                <span class="font-bold text-blue-600 text-base sm:text-lg">$${data.totalAmount}</span>
                 <span id="arrow-${userName}" class="text-slate-400 text-xs transform transition-transform duration-200 ${isMe ? 'rotate-180' : ''}">▼</span>
               </div>
             </div>
 
-            <div id="details-${userName}" class="${isMe ? 'block' : 'hidden'} px-4 pb-3 border-t border-slate-100 bg-slate-50/50">
+            <div id="details-${userName}" class="${isMe ? 'block' : 'hidden'} px-4 sm:px-5 pb-4 border-t border-slate-100 bg-slate-50/50">
               <div class="divide-y divide-slate-100">
                 ${items.map(item => `
-                  <div class="py-2.5 flex justify-between items-center text-xs">
+                  <div class="py-3 flex justify-between items-center text-sm">
                     <div class="flex-1 pr-2">
-                      <span class="text-slate-400 font-medium">[${item.storeName}]</span>
-                      <span class="text-slate-800 font-bold ml-1">${item.itemName}</span>
-                      <span class="text-blue-600 font-extrabold ml-1.5">× ${item.count}</span>${item.note ? `<span class="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded ml-1.5">${item.note}</span>` : ''}
-                      <span class="text-slate-400 ml-2 font-medium">($${item.price * item.count})</span>
+                      <span class="text-slate-500 font-bold">[${item.storeName}]</span>
+                      <span class="text-slate-800 font-bold ml-1 text-base">${item.itemName}</span>
+                      <span class="text-blue-600 font-extrabold ml-2 text-base">× ${item.count}</span>
+                      ${item.note ? `<span class="text-xs text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded ml-2 font-bold">${item.note}</span>` : ''}
+                      <span class="text-slate-500 ml-2 font-bold">($${item.price * item.count})</span>
                     </div>
 
                     ${isMe ? `
-                      <div class="flex items-center space-x-1.5 shrink-0">
-                        <button onclick="reduceOrderItem(${item.orderIds[item.orderIds.length - 1]})" class="px-2 py-1 bg-white hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-semibold transition" title="退訂 1 份">
+                      <div class="flex items-center space-x-2 shrink-0">
+                        <button onclick="reduceOrderItem(${item.orderIds[item.orderIds.length - 1]})" class="px-2.5 py-1.5 bg-white hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold transition" title="退訂 1 份">
                           ➖ 減 1
                         </button>
-                        <button onclick="openSelfEditModal(${item.orderIds[item.orderIds.length - 1]})" class="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-semibold transition" title="修改品項規格">
+                        <button onclick="openSelfEditModal(${item.orderIds[item.orderIds.length - 1]})" class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition" title="修改品項規格">
                           ✏️ 改
                         </button>
-                        <button onclick="deleteEntireGroup([${item.orderIds.join(',')}])" class="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-[11px] font-semibold transition" title="整組全部退訂">
+                        <button onclick="deleteEntireGroup([${item.orderIds.join(',')}])" class="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-xs font-bold transition" title="整組全部退訂">
                           🗑️ 全退
                         </button>
                       </div>
@@ -1035,7 +1038,6 @@
         cachedPaymentCards.forEach(c => {
           const isHttp = c.app_link && (c.app_link.startsWith('http://') || c.app_link.startsWith('https://'));
           
-          // 解析綁定的店家名稱
           let boundStoresStr = '全部店家';
           if (c.target_store_ids) {
             const ids = c.target_store_ids.split(',').map(Number);
@@ -1044,38 +1046,38 @@
           }
 
           html += `
-            <div class="border border-slate-200 bg-slate-50/60 rounded-2xl p-4 flex flex-col justify-between space-y-3 shadow-2xs">
-              <div class="space-y-2">
+            <div class="border border-slate-200 bg-slate-50/60 rounded-2xl p-4 sm:p-5 flex flex-col justify-between space-y-3.5 shadow-2xs">
+              <div class="space-y-2.5">
                 <div class="flex justify-between items-start">
                   <div>
-                    <span class="text-[11px] font-bold text-emerald-700 bg-emerald-100/80 border border-emerald-300 px-2 py-0.5 rounded-md">主揪：${escapeHtml(c.initiator_name)}</span>
-                    <h3 class="font-bold text-slate-800 text-sm mt-1">${escapeHtml(c.title)}</h3>
-                    <p class="text-[10px] text-slate-500 mt-0.5">負責店家：<span class="text-emerald-700 font-semibold">${escapeHtml(boundStoresStr)}</span></p>
+                    <span class="text-xs font-bold text-emerald-700 bg-emerald-100/80 border border-emerald-300 px-2.5 py-0.5 rounded-md">主揪：${escapeHtml(c.initiator_name)}</span>
+                    <h3 class="font-bold text-slate-800 text-base sm:text-lg mt-1.5">${escapeHtml(c.title)}</h3>
+                    <p class="text-xs text-slate-500 mt-1">負責店家：<span class="text-emerald-700 font-bold">${escapeHtml(boundStoresStr)}</span></p>
                   </div>
-                  <div class="flex items-center space-x-1 shrink-0">
-                    <button onclick="openAuditModal(${c.id}, '${escapeHtml(c.title)}')" class="text-emerald-700 hover:text-emerald-900 text-xs px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg font-bold transition">
+                  <div class="flex items-center space-x-1.5 shrink-0">
+                    <button onclick="openAuditModal(${c.id}, '${escapeHtml(c.title)}')" class="text-emerald-700 hover:text-emerald-900 text-xs px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg font-bold transition">
                       🔐 查帳
                     </button>
-                    <button onclick="deletePaymentCardPrompt(${c.id}, '${escapeHtml(c.title)}')" class="text-slate-400 hover:text-red-600 text-xs px-1.5 py-1 bg-white hover:bg-red-50 border border-slate-200 rounded-lg transition" title="刪除此卡片">
+                    <button onclick="deletePaymentCardPrompt(${c.id}, '${escapeHtml(c.title)}')" class="text-slate-400 hover:text-red-600 text-xs px-2 py-1.5 bg-white hover:bg-red-50 border border-slate-200 rounded-lg transition" title="刪除此卡片">
                       🗑️
                     </button>
                   </div>
                 </div>
 
                 ${c.qr_image ? `
-                  <div class="flex justify-center py-1">
-                    <img src="${c.qr_image}" onclick="previewImage('${c.qr_image}')" class="w-36 h-36 object-contain bg-white border border-slate-200 rounded-xl p-1.5 shadow-2xs cursor-pointer hover:border-emerald-400 transition" title="點擊放大">
+                  <div class="flex justify-center py-1.5">
+                    <img src="${c.qr_image}" onclick="previewImage('${c.qr_image}')" class="w-40 h-40 object-contain bg-white border border-slate-200 rounded-xl p-1.5 shadow-2xs cursor-pointer hover:border-emerald-400 transition" title="點擊放大">
                   </div>
                 ` : ''}
 
                 ${c.app_link ? `
                   <div class="pt-1">
                     ${isHttp ? `
-                      <a href="${c.app_link}" target="_blank" rel="noopener noreferrer" class="w-full inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition shadow-xs">
+                      <a href="${c.app_link}" target="_blank" rel="noopener noreferrer" class="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-xs">
                         📱 開啟行動支付 / 轉帳連結
                       </a>
                     ` : `
-                      <div class="bg-white border border-slate-200 rounded-xl p-2 text-center text-xs font-mono font-bold text-slate-700 select-all">
+                      <div class="bg-white border border-slate-200 rounded-xl p-2.5 text-center text-sm font-mono font-bold text-slate-700 select-all">
                         ${escapeHtml(c.app_link)}
                       </div>
                     `}
@@ -1083,17 +1085,17 @@
                 ` : ''}
 
                 ${c.note ? `
-                  <p class="text-[11px] text-slate-500 bg-white border border-slate-200/60 rounded-lg p-2 leading-relaxed">
+                  <p class="text-xs text-slate-600 bg-white border border-slate-200/80 rounded-lg p-2.5 leading-relaxed font-medium">
                     📌 備註：${escapeHtml(c.note)}
                   </p>
                 ` : ''}
               </div>
 
-              <div class="pt-2 border-t border-slate-200/60 space-y-2">
-                <button onclick="openNotifyModal(${c.id}, '${escapeHtml(c.title)}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-1.5">
+              <div class="pt-2.5 border-t border-slate-200/60 space-y-2">
+                <button onclick="openNotifyModal(${c.id}, '${escapeHtml(c.title)}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-1.5">
                   <span>📝</span> 我已轉帳，送出回報
                 </button>
-                <div class="text-[10px] text-slate-400 flex justify-between">
+                <div class="text-xs text-slate-400 flex justify-between font-medium">
                   <span>建立：${c.created_at.slice(5, 16)}</span>
                   <span>滿 6 天自動清理</span>
                 </div>
@@ -1108,7 +1110,6 @@
       }
     }
 
-    // 🌟 打開建立收款卡片彈窗
     function openPaymentModal() {
       document.getElementById('payInitiatorName').value = document.getElementById('userSelect').value || '';
       document.getElementById('payTitle').value = '';
@@ -1117,15 +1118,14 @@
       document.getElementById('payPassword').value = '';
       clearUploadImage();
 
-      // 渲染店家勾選核取方塊
       const container = document.getElementById('targetStoresCheckboxList');
       if (!allStores || allStores.length === 0) {
         container.innerHTML = '<span class="text-xs text-slate-400">目前無供餐店家</span>';
       } else {
         container.innerHTML = allStores.map(s => `
-          <label class="flex items-center space-x-2 bg-white border border-slate-200 rounded-lg p-1.5 cursor-pointer hover:bg-slate-50 transition">
+          <label class="flex items-center space-x-2.5 bg-white border border-slate-200 rounded-lg p-2 cursor-pointer hover:bg-slate-50 transition">
             <input type="checkbox" name="targetStoreCheckbox" value="${s.id}" onchange="autoUpdateCardTitle()" class="w-4 h-4 text-emerald-600 rounded">
-            <span class="font-bold text-slate-700 text-xs">${s.name} (${s.category || '一般'})</span>
+            <span class="font-bold text-slate-800 text-xs">${s.name} (${s.category || '一般'})</span>
           </label>
         `).join('');
       }
@@ -1133,7 +1133,6 @@
       document.getElementById('paymentModal').classList.remove('hidden');
     }
 
-    // 依勾選店家自動建議標題
     function autoUpdateCardTitle() {
       const checkedBoxes = Array.from(document.querySelectorAll('input[name="targetStoreCheckbox"]:checked'));
       const checkedIds = checkedBoxes.map(b => Number(b.value));
@@ -1356,21 +1355,21 @@
         list.forEach(n => {
           const isApproved = (n.status === 1);
           html += `
-            <div class="flex justify-between items-center bg-slate-50 border ${isApproved ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200'} rounded-xl p-3">
+            <div class="flex justify-between items-center bg-slate-50 border ${isApproved ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200'} rounded-xl p-3.5">
               <div>
-                <div class="flex items-center space-x-1.5">
-                  <span class="font-bold text-slate-800 text-sm">${escapeHtml(n.user_name)}</span>
-                  <span class="font-bold text-blue-600 ml-1">$${n.amount}</span>
-                  ${isApproved ? '<span class="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">✓ 已沖帳</span>' : '<span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">待核對</span>'}
+                <div class="flex items-center space-x-2">
+                  <span class="font-bold text-slate-800 text-base">${escapeHtml(n.user_name)}</span>
+                  <span class="font-bold text-blue-600 text-base ml-1">$${n.amount}</span>
+                  ${isApproved ? '<span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold">✓ 已沖帳</span>' : '<span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">待核對</span>'}
                 </div>
-                <p class="text-[11px] text-slate-500 mt-0.5">
-                  末五碼/備註：<span class="font-mono font-bold text-slate-700">${escapeHtml(n.account_tail || '未提供')}</span>
+                <p class="text-xs text-slate-600 mt-1">
+                  末五碼/備註：<span class="font-mono font-bold text-slate-800">${escapeHtml(n.account_tail || '未提供')}</span>
                 </p>
-                <span class="text-[10px] text-slate-400">${n.created_at.slice(5, 16)}</span>
+                <span class="text-xs text-slate-400 font-medium">${n.created_at.slice(5, 16)}</span>
               </div>
               <div>
                 ${!isApproved ? `
-                  <button onclick="approveNotification(${n.id})" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-xs transition">
+                  <button onclick="approveNotification(${n.id})" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-xs transition">
                     ✓ 核准沖帳
                   </button>
                 ` : `
