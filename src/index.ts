@@ -716,24 +716,25 @@ app.post('/api/admin/orders/realign-prices', async (c) => {
 });
 
 // ==========================================
-// 💳 多人主揪收款卡片 API (支援自動清理 3 天過期項目)
+// 💳 多人主揪收款卡片與對帳沖帳 API
 // ==========================================
 
-// 1. 取得所有有效收款卡片 (順便執行惰性清理，自動刪除滿 3 天卡片)
+// 1. 取得所有有效收款卡片 (惰性清理 6 天過期項目)
 app.get('/api/payment/cards', async (c) => {
   try {
     const db = c.env.DB;
 
-    // 🌟 惰性清理：自動刪除建立超過 3 天的舊卡片
-    await db.prepare(`
-      DELETE FROM payment_cards 
-      WHERE datetime(created_at, '+3 days') <= datetime('now')
-    `).run();
+    // 🌟 惰性清理：自動刪除超過 6 天的舊卡片及關聯回報
+    await db.batch([
+      db.prepare(`DELETE FROM payment_notifications WHERE card_id IN (
+        SELECT id FROM payment_cards WHERE datetime(created_at, '+6 days') <= datetime('now')
+      )`),
+      db.prepare(`DELETE FROM payment_cards WHERE datetime(created_at, '+6 days') <= datetime('now')`)
+    ]);
 
-    // 查詢現有卡片 (遮蔽 edit_password 防外洩)
     const { results } = await db.prepare(`
-      SELECT id, initiator_name, title, qr_image, app_link, note, created_at,
-             datetime(created_at, '+3 days') AS expires_at
+      SELECT id, initiator_name, title, target_store_ids, qr_image, app_link, note, created_at,
+             datetime(created_at, '+6 days') AS expires_at
       FROM payment_cards
       ORDER BY id DESC
     `).all();
@@ -744,59 +745,239 @@ app.get('/api/payment/cards', async (c) => {
   }
 });
 
-// 2. 新增收款卡片
+// 2. 新增收款卡片 (儲存綁定的店家清單)
 app.post('/api/payment/card/add', async (c) => {
   try {
-    const { initiatorName, title, qrImage, appLink, note, password } = await c.req.json();
+    const { initiatorName, title, targetStoreIds, qrImage, appLink, note, password } = await c.req.json();
     
     if (!initiatorName || !title || !password) {
-      return c.json({ success: false, message: '主揪姓名、收款標題與卡片管理密碼為必填！' }, 400);
+      return c.json({ success: false, message: '主揪姓名、收款標題與管理密碼為必填！' }, 400);
     }
 
     const db = c.env.DB;
     await db.prepare(`
-      INSERT INTO payment_cards (initiator_name, title, qr_image, app_link, note, edit_password)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO payment_cards (initiator_name, title, target_store_ids, qr_image, app_link, note, edit_password)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `).bind(
       String(initiatorName).trim(),
       String(title).trim(),
+      String(targetStoreIds || '').trim(),
       qrImage || '',
       appLink ? String(appLink).trim() : '',
       note ? String(note).trim() : '',
       String(password).trim()
     ).run();
 
-    return c.json({ success: true, message: '🎉 收款卡片建立成功！將保留 6 天後自動清理。' });
+    return c.json({ success: true, message: '🎉 收款卡片建立成功！將保留 6 天後自動下架。' });
   } catch (err: any) {
     return c.json({ success: false, message: err?.message || '新增失敗' }, 500);
   }
 });
 
-// 3. 刪除收款卡片 (驗證該卡片的建立密碼)
+// 3. 刪除收款卡片 (驗證卡片密碼)
 app.post('/api/payment/card/delete', async (c) => {
   try {
     const { cardId, password } = await c.req.json();
     const cId = Number(cardId);
-
-    if (!cId || !password) {
-      return c.json({ success: false, message: '缺少卡片編號或密碼' }, 400);
-    }
+    if (!cId || !password) return c.json({ success: false, message: '缺少卡片編號或密碼' }, 400);
 
     const db = c.env.DB;
     const card: any = await db.prepare("SELECT edit_password FROM payment_cards WHERE id = ?").bind(cId).first();
 
-    if (!card) {
-      return c.json({ success: false, message: '找不到該卡片或已過期下架' }, 404);
-    }
-
+    if (!card) return c.json({ success: false, message: '找不到該卡片或已過期' }, 404);
     if (card.edit_password !== String(password).trim()) {
-      return c.json({ success: false, message: '🔒 密碼錯誤！無法刪除此收款卡片。' }, 403);
+      return c.json({ success: false, message: '🔒 密碼錯誤！無法刪除此卡片。' }, 403);
     }
 
-    await db.prepare("DELETE FROM payment_cards WHERE id = ?").bind(cId).run();
+    await db.batch([
+      db.prepare("DELETE FROM payment_notifications WHERE card_id = ?").bind(cId),
+      db.prepare("DELETE FROM payment_cards WHERE id = ?").bind(cId)
+    ]);
+
     return c.json({ success: true, message: '收款卡片已刪除！' });
   } catch (err: any) {
     return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
+  }
+});
+
+// 4. 查詢某人在該卡片負責店家的應付金額試算
+app.post('/api/payment/calculate-user-amount', async (c) => {
+  try {
+    const { cardId, userName } = await c.req.json();
+    if (!cardId || !userName) return c.json({ success: false, message: '參數不完整' }, 400);
+
+    const db = c.env.DB;
+    const card: any = await db.prepare("SELECT target_store_ids FROM payment_cards WHERE id = ?").bind(Number(cardId)).first();
+    if (!card) return c.json({ success: false, message: '找不到卡片' }, 404);
+
+    const storeIdsStr = card.target_store_ids || '';
+    let storeIds = storeIdsStr.split(',').map((id: string) => Number(id.trim())).filter((id: number) => !isNaN(id) && id > 0);
+
+    let query = `
+      SELECT o.id, o.price, o.paid_amount, o.is_paid, m.item_name, s.name as store_name
+      FROM orders o
+      JOIN menu_items m ON o.item_id = m.id
+      JOIN stores s ON m.store_id = s.id
+      WHERE o.user_name = ?
+    `;
+
+    if (storeIds.length > 0) {
+      const placeholders = storeIds.map(() => '?').join(',');
+      query += ` AND s.id IN (${placeholders})`;
+    }
+
+    const binds = [userName, ...storeIds];
+    const { results } = await db.prepare(query).bind(...binds).all();
+
+    let total = 0;
+    let paid = 0;
+    (results || []).forEach((row: any) => {
+      total += Number(row.price || 0);
+      paid += Number(row.paid_amount || 0);
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        userName,
+        targetTotal: total,
+        currentPaid: paid,
+        suggestedAmount: Math.max(0, total - paid),
+        items: results
+      }
+    });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '試算失敗' }, 500);
+  }
+});
+
+// 5. 同仁送出轉帳回報
+app.post('/api/payment/notify/submit', async (c) => {
+  try {
+    const { cardId, userName, amount, accountTail } = await c.req.json();
+    const cId = Number(cardId);
+    const payAmount = Number(amount);
+
+    if (!cId || !userName || !payAmount || isNaN(payAmount)) {
+      return c.json({ success: false, message: '請確實選擇姓名並輸入轉帳金額！' }, 400);
+    }
+
+    const db = c.env.DB;
+    await db.prepare(`
+      INSERT INTO payment_notifications (card_id, user_name, amount, account_tail, status)
+      VALUES (?, ?, ?, ?, 0)
+    `).bind(
+      cId, 
+      String(userName).trim(), 
+      payAmount, 
+      accountTail ? String(accountTail).trim() : ''
+    ).run();
+
+    return c.json({ success: true, message: '🎉 匯款回報已送出！請靜待主揪核對沖帳。' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '回報失敗' }, 500);
+  }
+});
+
+// 6. 主揪輸入密碼解鎖查閱回報清單
+app.post('/api/payment/notifications/list', async (c) => {
+  try {
+    const { cardId, password } = await c.req.json();
+    const cId = Number(cardId);
+    if (!cId || !password) return c.json({ success: false, message: '請提供卡片編號與管理密碼' }, 400);
+
+    const db = c.env.DB;
+    const card: any = await db.prepare("SELECT edit_password, target_store_ids FROM payment_cards WHERE id = ?").bind(cId).first();
+    if (!card) return c.json({ success: false, message: '找不到此卡片' }, 404);
+
+    if (card.edit_password !== String(password).trim()) {
+      return c.json({ success: false, message: '🔒 密碼錯誤！無法查看對帳資訊。' }, 403);
+    }
+
+    const { results } = await db.prepare(`
+      SELECT * FROM payment_notifications 
+      WHERE card_id = ? 
+      ORDER BY status ASC, id DESC
+    `).bind(cId).all();
+
+    return c.json({ success: true, data: results });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '讀取失敗' }, 500);
+  }
+});
+
+// 7. 主揪一鍵核准沖帳
+app.post('/api/payment/notification/approve', async (c) => {
+  try {
+    const { notificationId, cardId, password } = await c.req.json();
+    const nId = Number(notificationId);
+    const cId = Number(cardId);
+    if (!nId || !cId || !password) return c.json({ success: false, message: '參數不完整' }, 400);
+
+    const db = c.env.DB;
+    const card: any = await db.prepare("SELECT edit_password, target_store_ids, title FROM payment_cards WHERE id = ?").bind(cId).first();
+    if (!card || card.edit_password !== String(password).trim()) {
+      return c.json({ success: false, message: '🔒 密碼錯誤或無權限操作' }, 403);
+    }
+
+    const notif: any = await db.prepare("SELECT * FROM payment_notifications WHERE id = ? AND card_id = ?").bind(nId, cId).first();
+    if (!notif) return c.json({ success: false, message: '找不到該筆回報' }, 404);
+    if (notif.status === 1) return c.json({ success: false, message: '此筆回報已核准過，請勿重複沖帳' }, 400);
+
+    // 抓出該同仁在該卡片負責店家的訂單
+    const storeIdsStr = card.target_store_ids || '';
+    let storeIds = storeIdsStr.split(',').map((id: string) => Number(id.trim())).filter((id: number) => !isNaN(id) && id > 0);
+
+    let orderQuery = `
+      SELECT o.id, o.price, o.paid_amount, o.is_paid, o.note 
+      FROM orders o
+      JOIN menu_items m ON o.item_id = m.id
+      WHERE o.user_name = ?
+    `;
+    if (storeIds.length > 0) {
+      const placeholders = storeIds.map(() => '?').join(',');
+      orderQuery += ` AND m.store_id IN (${placeholders})`;
+    }
+    orderQuery += ` ORDER BY o.id ASC`;
+
+    const userOrders: any = await db.prepare(orderQuery).bind(notif.user_name, ...storeIds).all();
+    const ordersList = userOrders.results || [];
+
+    let remainingCredit = Number(notif.amount);
+    const updateStatements: any[] = [];
+    const auditTag = `[轉帳$${notif.amount}${notif.account_tail ? `(末5碼${notif.account_tail})` : ''}]`;
+
+    for (const ord of ordersList) {
+      if (remainingCredit <= 0) break;
+      const unpaidForThisItem = Math.max(0, ord.price - ord.paid_amount);
+
+      if (unpaidForThisItem > 0) {
+        const payToItem = Math.min(remainingCredit, unpaidForThisItem);
+        const newPaidAmount = ord.paid_amount + payToItem;
+        const isPaidFlag = newPaidAmount >= ord.price ? 1 : 0;
+        const newNote = ord.note ? `${ord.note} ${auditTag}` : auditTag;
+
+        updateStatements.push(
+          db.prepare(`UPDATE orders SET paid_amount = ?, is_paid = ?, note = ? WHERE id = ?`)
+            .bind(newPaidAmount, isPaidFlag, newNote, ord.id)
+        );
+        remainingCredit -= payToItem;
+      }
+    }
+
+    // 更新回報狀態為已核准
+    updateStatements.push(
+      db.prepare(`UPDATE payment_notifications SET status = 1 WHERE id = ?`).bind(nId)
+    );
+
+    await db.batch(updateStatements);
+
+    return c.json({ 
+      success: true, 
+      message: `🎉 核准成功！已將 $${notif.amount} 自動沖帳並更新後台點餐紀錄。` 
+    });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || '核准失敗' }, 500);
   }
 });
 
