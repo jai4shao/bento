@@ -9,13 +9,11 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css">
   <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
   <style>
-    /* 確保全域字體以使用者裝置設定為基準 */
     html {
       font-size: 100%;
       -webkit-text-size-adjust: 100%;
     }
 
-    /* 防止過小字體：強制微型文字與標籤最低不小於 0.875rem */
     .text-xs,
     [class*="text-[10px]"],
     [class*="text-[11px]"] {
@@ -23,7 +21,6 @@
       line-height: 1.25rem !important;
     }
 
-    /* 提升輸入框與按鈕在手機上的易讀性與點擊手感 */
     button, select, input {
       font-size: 1rem !important;
     }
@@ -73,7 +70,6 @@
       <div>
         <div class="flex items-center flex-wrap gap-2.5">
           <h1 class="text-2xl font-bold text-slate-800">🍱 今日便當 / 飲料登記</h1>
-          <!-- 🚦 點餐開放/截止紅綠燈狀態 -->
           <span id="orderStatusBadge" class="text-xs font-bold px-2.5 py-1 rounded-full border bg-slate-100 text-slate-500 border-slate-200">
             載入狀態中...
           </span>
@@ -142,9 +138,9 @@
       <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-3">
         <div>
           <h2 class="text-lg font-bold text-slate-800 flex items-center gap-1.5">
-            <span>💳</span> 本日主揪收款區
+            <span>💳</span> 本日主揪收款專區
           </h2>
-          <p class="text-xs text-slate-500 mt-0.5">多團收款獨立展示；卡片滿 3 天系統將自動清理下架</p>
+          <p class="text-xs text-slate-500 mt-0.5">點擊卡片「回報匯款」送出末五碼，主揪可憑密碼查帳並一鍵自動沖帳</p>
         </div>
         <button onclick="openPaymentModal()" class="text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-2 rounded-xl transition self-start sm:self-auto">
           ➕ 新增我的收款項目
@@ -259,7 +255,7 @@
     </div>
   </div>
 
-  <!-- ➕ 新增收款項目 Modal -->
+  <!-- ➕ 新增收款項目 Modal (支援店家綁定) -->
   <div id="paymentModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-5 space-y-3.5 max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center border-b pb-2">
@@ -272,17 +268,17 @@
           <label class="block font-semibold text-slate-700 mb-1">主揪姓名 *</label>
           <input type="text" id="payInitiatorName" placeholder="如：王大明" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500">
         </div>
+
+        <!-- 🌟 核心：綁定此卡片負責的店家 -->
+        <div class="bg-emerald-50/60 border border-emerald-200 rounded-xl p-2.5 space-y-1.5">
+          <label class="block font-bold text-emerald-900">📌 選擇此卡片負責收款的店家 * (可複選)</label>
+          <p class="text-[11px] text-slate-500">系統將依勾選店家，自動為同仁試算該付金額並正確沖帳</p>
+          <div id="targetStoresCheckboxList" class="space-y-1 pt-1 max-h-32 overflow-y-auto"></div>
+        </div>
+
         <div>
-          <div class="flex justify-between items-center mb-1">
-            <label class="font-semibold text-slate-700">開團/收款標題 *</label>
-            <span class="text-[11px] text-emerald-600 font-medium">💡 可下拉快選或手動修改</span>
-          </div>
-          <!-- 快捷下拉選單 -->
-          <select id="payTitlePresetSelect" onchange="onPresetTitleChange(this.value)" class="w-full mb-1.5 border border-slate-300 rounded-xl px-3 py-1.5 bg-slate-50 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500">
-            <option value="">-- 快捷選擇今日供餐店家 --</option>
-          </select>
-          <!-- 實際送出的標題輸入框 (保留自由手動編輯) -->
-          <input type="text" id="payTitle" placeholder="可直接修改，如：美味便當 + 五十嵐" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500">
+          <label class="block font-semibold text-slate-700 mb-1">開團/收款標題 *</label>
+          <input type="text" id="payTitle" placeholder="如：美味便當 收款" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500">
         </div>
         
         <!-- 📸 圖片上傳與裁切預覽區 -->
@@ -311,9 +307,9 @@
         </div>
 
         <div class="bg-amber-50 border border-amber-200 p-2.5 rounded-xl space-y-1">
-          <label class="block font-bold text-amber-900">卡片管理密碼 * (防止被他人刪除)</label>
-          <input type="password" id="payPassword" placeholder="設定一組密碼，日後刪除卡片時核對" class="w-full border border-amber-300 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:ring-2 focus:ring-amber-500 text-xs">
-          <p class="text-[10px] text-amber-700">滿 3 天系統會自動清理此卡片；若提前收齊可憑此密碼刪除。</p>
+          <label class="block font-bold text-amber-900">卡片管理密碼 * (查帳與刪除時核對)</label>
+          <input type="password" id="payPassword" placeholder="設定一組密碼，查帳對帳與刪除卡片時使用" class="w-full border border-amber-300 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:ring-2 focus:ring-amber-500 text-xs">
+          <p class="text-[10px] text-amber-700">滿 6 天系統會自動清理此卡片；開團期間憑此密碼核准匯款。</p>
         </div>
       </div>
 
@@ -324,7 +320,68 @@
     </div>
   </div>
 
-  <!-- ✂️ 獨立的互動裁切 Modal (覆蓋在最上層 z-[60]) -->
+  <!-- 📝 同仁轉帳回報 Modal -->
+  <div id="notifyModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5 space-y-3.5">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="text-base font-bold text-slate-800">📝 回報轉帳資訊</h3>
+        <button onclick="closeNotifyModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">您的名字 *</label>
+          <select id="notifyUserSelect" onchange="onNotifyUserChange()" class="w-full border border-slate-300 rounded-xl px-3 py-2 bg-slate-50 font-bold outline-none focus:ring-2 focus:ring-blue-500"></select>
+        </div>
+
+        <div id="notifyCalcBox" class="bg-blue-50 border border-blue-200 rounded-xl p-2.5 space-y-1">
+          <div class="flex justify-between items-center font-bold text-blue-900">
+            <span>該主揪團應付總額：</span>
+            <span id="notifyCalculatedAmount" class="text-base text-blue-700">$0</span>
+          </div>
+          <p id="notifyItemsSummary" class="text-[11px] text-blue-600 truncate">計算中...</p>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">實際轉帳金額 ($) *</label>
+          <input type="number" id="notifyAmountInput" placeholder="請確認金額" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">帳號末 5 碼 / 轉帳姓名備註</label>
+          <input type="text" id="notifyTailInput" placeholder="例如：88990 或 LINE Pay 轉帳" class="w-full border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2 border-t">
+        <button onclick="closeNotifyModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
+        <button id="submitNotifyBtn" onclick="submitPaymentNotify()" class="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition">送出回報</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🔐 主揪對帳審核清單 Modal -->
+  <div id="auditModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-5 space-y-3.5 max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center border-b pb-2">
+        <div>
+          <h3 class="text-base font-bold text-slate-800">🔐 主揪查帳與沖帳審核</h3>
+          <p id="auditCardTitle" class="text-xs text-emerald-600 font-bold mt-0.5"></p>
+        </div>
+        <button onclick="closeAuditModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+
+      <div id="auditListContainer" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
+        <p class="text-slate-400 py-6 text-center">載入回報名單中...</p>
+      </div>
+
+      <div class="flex justify-end pt-2 border-t">
+        <button onclick="closeAuditModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✂️ 獨立的互動裁切 Modal -->
   <div id="cropperModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex flex-col items-center justify-center p-4 z-[60]">
     <div class="bg-white rounded-2xl max-w-md w-full p-4 space-y-3 flex flex-col max-h-[85vh]">
       <div class="flex justify-between items-center border-b pb-2">
@@ -332,7 +389,6 @@
         <button onclick="cancelCrop()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
       </div>
       
-      <!-- 裁切畫布容器 (固定高度防跑版) -->
       <div class="w-full h-72 sm:h-80 bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center">
         <img id="cropperImageTarget" src="" class="max-w-full max-h-full">
       </div>
@@ -352,6 +408,7 @@
     let allStores = [];
     let allMenuItems = [];
     let allOrders = [];
+    let allUsers = [];
     let activeModalStoreId = null;
     let currentPendingItem = null;
     let activeSelfEditingOrderId = null;
@@ -361,6 +418,11 @@
     let isLocked = false;
     let cropperInstance = null;
     let compressedBase64Image = '';
+
+    // 收款回報與查帳狀態變數
+    let currentAuditCardId = null;
+    let currentAuditPassword = '';
+    let currentNotifyCardId = null;
 
     async function initPage() {
       try {
@@ -384,6 +446,7 @@
         allStores = (stores || []).filter(s => s.is_active != 0);
         allMenuItems = menuItems || [];
         allOrders = orders || [];
+        allUsers = users || [];
 
         renderUsers(users);
         renderStoreButtons();
@@ -394,7 +457,6 @@
       }
     }
 
-    // 🚦 渲染開放/截止紅綠燈狀態
     function renderLockStatus(locked) {
       const badge = document.getElementById('orderStatusBadge');
       const submitBtn = document.getElementById('submitBtn');
@@ -455,7 +517,6 @@
       }
     }
 
-    // 🌟 渲染店家按鈕 (支援個別店家提早截止狀態)
     function renderStoreButtons() {
       const container = document.getElementById('storeButtonsContainer');
       if (!allStores || allStores.length === 0) {
@@ -490,18 +551,10 @@
     }
 
     function openMenuModal(storeId) {
-      if (isLocked) {
-        alert('今日全域已截止訂餐，無法挑選餐點！');
-        return;
-      }
-
+      if (isLocked) return alert('今日全域已截止訂餐，無法挑選餐點！');
       const store = allStores.find(s => s.id === storeId);
       if (!store) return;
-
-      if (store.is_active == 2) {
-        alert(`【${store.name}】已提早截止收單囉！無法再點餐。`);
-        return;
-      }
+      if (store.is_active == 2) return alert(`【${store.name}】已提早截止收單囉！無法再點餐。`);
 
       activeModalStoreId = storeId;
       document.getElementById('modalStoreTitle').innerText = store.name;
@@ -652,9 +705,7 @@
 
     function updateCartQty(index, delta) {
       cart[index].qty += delta;
-      if (cart[index].qty <= 0) {
-        cart.splice(index, 1);
-      }
+      if (cart[index].qty <= 0) cart.splice(index, 1);
       renderCart();
       updateModalCartCount();
     }
@@ -753,10 +804,7 @@
       const userGroup = {};
       orders.forEach(order => {
         if (!userGroup[order.user_name]) {
-          userGroup[order.user_name] = {
-            totalAmount: 0,
-            itemsMap: {}
-          };
+          userGroup[order.user_name] = { totalAmount: 0, itemsMap: {} };
         }
         userGroup[order.user_name].totalAmount += Number(order.price || 0);
 
@@ -847,7 +895,6 @@
 
     async function reduceOrderItem(orderId) {
       if (isLocked) return alert('今日全域已截止訂餐，無法取消或修改！');
-
       const currentUser = document.getElementById('userSelect').value;
       if (!currentUser) return alert('請先確認您目前選取的身分！');
       if (!confirm('確定要退訂 1 份嗎？')) return;
@@ -859,11 +906,8 @@
           body: JSON.stringify({ orderId, userName: currentUser })
         });
         const json = await res.json();
-        if (json.success) {
-          initPage();
-        } else {
-          alert(json.message || '退訂失敗');
-        }
+        if (json.success) initPage();
+        else alert(json.message || '退訂失敗');
       } catch (e) {
         alert('網路異常，請稍後再試');
       }
@@ -871,7 +915,6 @@
 
     async function deleteEntireGroup(orderIds) {
       if (isLocked) return alert('今日全域已截止訂餐，無法取消或修改！');
-
       const currentUser = document.getElementById('userSelect').value;
       if (!currentUser) return alert('請先確認您目前選取的身分！');
       if (!confirm(`確定要全部取消這 ${orderIds.length} 份餐點嗎？`)) return;
@@ -890,7 +933,6 @@
       }
     }
 
-    // 🌟 打開自我修改彈窗（加入店家已截止/休息防呆）
     function openSelfEditModal(orderId) {
       if (isLocked) return alert('今日全域已截止訂餐，無法修改！');
 
@@ -901,11 +943,8 @@
       const targetStoreId = originalItem ? originalItem.store_id : null;
       const store = allStores.find(s => s.id === targetStoreId);
 
-      if (store && store.is_active == 2) {
-        return alert(`【${store.name}】已提早截止收單，無法再更換品項！`);
-      } else if (store && store.is_active == 0) {
-        return alert(`【${store.name}】今日已設為公休，無法修改！`);
-      }
+      if (store && store.is_active == 2) return alert(`【${store.name}】已提早截止收單，無法再更換品項！`);
+      if (store && store.is_active == 0) return alert(`【${store.name}】今日已設為公休，無法修改！`);
 
       activeSelfEditingOrderId = orderId;
       document.getElementById('selfEditPrice').value = order.price;
@@ -956,13 +995,7 @@
         const res = await fetch('/api/order/self-update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orderId: activeSelfEditingOrderId,
-            userName: currentUser,
-            itemId,
-            price,
-            note
-          })
+          body: JSON.stringify({ orderId: activeSelfEditingOrderId, userName: currentUser, itemId, price, note })
         });
         const json = await res.json();
         if (json.success) {
@@ -982,23 +1015,34 @@
     // ==========================================
     // 💳 多位主揪收款專區與圖片裁切核心邏輯
     // ==========================================
+    let cachedPaymentCards = [];
+
     async function loadPaymentCards() {
       try {
         const res = await fetch('/api/payment/cards?t=' + Date.now(), { cache: 'no-store' });
         const json = await res.json();
         if (!json.success) return;
 
-        const cards = json.data || [];
+        cachedPaymentCards = json.data || [];
         const container = document.getElementById('paymentCardsGrid');
 
-        if (cards.length === 0) {
+        if (cachedPaymentCards.length === 0) {
           container.innerHTML = '<p class="col-span-full text-slate-400 py-6 text-center text-xs bg-slate-50 border border-dashed border-slate-200 rounded-xl">目前尚無主揪收款項目</p>';
           return;
         }
 
         let html = '';
-        cards.forEach(c => {
+        cachedPaymentCards.forEach(c => {
           const isHttp = c.app_link && (c.app_link.startsWith('http://') || c.app_link.startsWith('https://'));
+          
+          // 解析綁定的店家名稱
+          let boundStoresStr = '全部店家';
+          if (c.target_store_ids) {
+            const ids = c.target_store_ids.split(',').map(Number);
+            const names = allStores.filter(st => ids.includes(st.id)).map(st => st.name);
+            if (names.length > 0) boundStoresStr = names.join('、');
+          }
+
           html += `
             <div class="border border-slate-200 bg-slate-50/60 rounded-2xl p-4 flex flex-col justify-between space-y-3 shadow-2xs">
               <div class="space-y-2">
@@ -1006,10 +1050,16 @@
                   <div>
                     <span class="text-[11px] font-bold text-emerald-700 bg-emerald-100/80 border border-emerald-300 px-2 py-0.5 rounded-md">主揪：${escapeHtml(c.initiator_name)}</span>
                     <h3 class="font-bold text-slate-800 text-sm mt-1">${escapeHtml(c.title)}</h3>
+                    <p class="text-[10px] text-slate-500 mt-0.5">負責店家：<span class="text-emerald-700 font-semibold">${escapeHtml(boundStoresStr)}</span></p>
                   </div>
-                  <button onclick="deletePaymentCardPrompt(${c.id}, '${escapeHtml(c.title)}')" class="text-slate-400 hover:text-red-600 text-xs px-2 py-1 bg-white hover:bg-red-50 border border-slate-200 rounded-lg transition" title="刪除此卡片">
-                    🗑️ 刪除
-                  </button>
+                  <div class="flex items-center space-x-1 shrink-0">
+                    <button onclick="openAuditModal(${c.id}, '${escapeHtml(c.title)}')" class="text-emerald-700 hover:text-emerald-900 text-xs px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg font-bold transition">
+                      🔐 查帳
+                    </button>
+                    <button onclick="deletePaymentCardPrompt(${c.id}, '${escapeHtml(c.title)}')" class="text-slate-400 hover:text-red-600 text-xs px-1.5 py-1 bg-white hover:bg-red-50 border border-slate-200 rounded-lg transition" title="刪除此卡片">
+                      🗑️
+                    </button>
+                  </div>
                 </div>
 
                 ${c.qr_image ? `
@@ -1039,9 +1089,14 @@
                 ` : ''}
               </div>
 
-              <div class="text-[10px] text-slate-400 border-t border-slate-200/60 pt-2 flex justify-between">
-                <span>建立時間：${c.created_at.slice(5, 16)}</span>
-                <span>3 天後自動刪除</span>
+              <div class="pt-2 border-t border-slate-200/60 space-y-2">
+                <button onclick="openNotifyModal(${c.id}, '${escapeHtml(c.title)}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-1.5">
+                  <span>📝</span> 我已轉帳，送出回報
+                </button>
+                <div class="text-[10px] text-slate-400 flex justify-between">
+                  <span>建立：${c.created_at.slice(5, 16)}</span>
+                  <span>滿 6 天自動清理</span>
+                </div>
               </div>
             </div>
           `;
@@ -1053,67 +1108,44 @@
       }
     }
 
-    // 🌟 Cropper 圖片選擇與裁切視窗初始化
-    function initCrop(event) {
-      const file = event.target.files[0];
-      if (!file) return;
+    // 🌟 打開建立收款卡片彈窗
+    function openPaymentModal() {
+      document.getElementById('payInitiatorName').value = document.getElementById('userSelect').value || '';
+      document.getElementById('payTitle').value = '';
+      document.getElementById('payAppLink').value = '';
+      document.getElementById('payNote').value = '';
+      document.getElementById('payPassword').value = '';
+      clearUploadImage();
 
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const targetImg = document.getElementById('cropperImageTarget');
-        targetImg.src = e.target.result;
+      // 渲染店家勾選核取方塊
+      const container = document.getElementById('targetStoresCheckboxList');
+      if (!allStores || allStores.length === 0) {
+        container.innerHTML = '<span class="text-xs text-slate-400">目前無供餐店家</span>';
+      } else {
+        container.innerHTML = allStores.map(s => `
+          <label class="flex items-center space-x-2 bg-white border border-slate-200 rounded-lg p-1.5 cursor-pointer hover:bg-slate-50 transition">
+            <input type="checkbox" name="targetStoreCheckbox" value="${s.id}" onchange="autoUpdateCardTitle()" class="w-4 h-4 text-emerald-600 rounded">
+            <span class="font-bold text-slate-700 text-xs">${s.name} (${s.category || '一般'})</span>
+          </label>
+        `).join('');
+      }
 
-        document.getElementById('cropperModal').classList.remove('hidden');
-
-        if (cropperInstance) {
-          cropperInstance.destroy();
-        }
-
-        cropperInstance = new Cropper(targetImg, {
-          aspectRatio: 1, // 正方形裁切最適合 QR Code
-          viewMode: 1,
-          autoCropArea: 0.75,
-          responsive: true,
-          guides: true
-        });
-      };
-      reader.readAsDataURL(file);
+      document.getElementById('paymentModal').classList.remove('hidden');
     }
 
-    // 🌟 確認裁切：強制縮至 400x400 px，壓至 25~40KB 的極小 JPEG
-    function confirmCrop() {
-      if (!cropperInstance) return;
+    // 依勾選店家自動建議標題
+    function autoUpdateCardTitle() {
+      const checkedBoxes = Array.from(document.querySelectorAll('input[name="targetStoreCheckbox"]:checked'));
+      const checkedIds = checkedBoxes.map(b => Number(b.value));
+      const checkedNames = allStores.filter(s => checkedIds.includes(s.id)).map(s => s.name);
 
-      const canvas = cropperInstance.getCroppedCanvas({
-        width: 400,
-        height: 400,
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: 'high'
-      });
-
-      compressedBase64Image = canvas.toDataURL('image/jpeg', 0.8);
-
-      document.getElementById('compressedImagePreview').src = compressedBase64Image;
-      document.getElementById('imagePreviewBox').classList.remove('hidden');
-
-      const approxSizeKb = Math.round((compressedBase64Image.length * (3 / 4)) / 1024);
-      document.getElementById('imageSizeIndicator').innerText = `已成功壓縮：約 ${approxSizeKb} KB`;
-
-      cancelCrop();
-    }
-
-    function cancelCrop() {
-      document.getElementById('cropperModal').classList.add('hidden');
-      if (cropperInstance) {
-        cropperInstance.destroy();
-        cropperInstance = null;
+      if (checkedNames.length > 0) {
+        document.getElementById('payTitle').value = checkedNames.join(' + ') + ' 收款';
       }
     }
 
-    function clearUploadImage() {
-      compressedBase64Image = '';
-      document.getElementById('payQrFileInput').value = '';
-      document.getElementById('imagePreviewBox').classList.add('hidden');
+    function closePaymentModal() {
+      document.getElementById('paymentModal').classList.add('hidden');
     }
 
     async function submitPaymentCard() {
@@ -1123,8 +1155,14 @@
       const note = document.getElementById('payNote').value.trim();
       const password = document.getElementById('payPassword').value.trim();
 
+      const checkedBoxes = Array.from(document.querySelectorAll('input[name="targetStoreCheckbox"]:checked'));
+      const targetStoreIds = checkedBoxes.map(b => b.value).join(',');
+
       if (!initiatorName || !title || !password) {
-        return alert('請填寫主揪姓名、開團標題與卡片管理密碼！');
+        return alert('請填寫主揪姓名、收款標題與卡片管理密碼！');
+      }
+      if (!targetStoreIds) {
+        return alert('請至少勾選一家這張卡片負責收款的店家！');
       }
 
       const btn = document.getElementById('submitPayCardBtn');
@@ -1138,6 +1176,7 @@
           body: JSON.stringify({
             initiatorName,
             title,
+            targetStoreIds,
             qrImage: compressedBase64Image,
             appLink,
             note,
@@ -1182,46 +1221,263 @@
       }
     }
 
-// 🌟 點選快捷選單自動帶入輸入框
-function onPresetTitleChange(val) {
-  if (val) {
-    document.getElementById('payTitle').value = val;
-  }
-}
+    // ==========================================
+    // 📝 同仁轉帳回報核心
+    // ==========================================
+    async function openNotifyModal(cardId, cardTitle) {
+      currentNotifyCardId = cardId;
 
-// 🌟 打開收款彈窗時，自動填入當前開團的店家清單
-function openPaymentModal() {
-  document.getElementById('payInitiatorName').value = document.getElementById('userSelect').value || '';
-  document.getElementById('payTitle').value = '';
-  document.getElementById('payAppLink').value = '';
-  document.getElementById('payNote').value = '';
-  document.getElementById('payPassword').value = '';
-  clearUploadImage();
+      const userSelect = document.getElementById('notifyUserSelect');
+      const currentUser = document.getElementById('userSelect').value;
+      userSelect.innerHTML = allUsers.map(u => `
+        <option value="${u.name}" ${u.name === currentUser ? 'selected' : ''}>${u.name}</option>
+      `).join('');
 
-  // 動態生成今日開團的店家選項 (只列出供餐中與已截止的店家)
-  const presetSelect = document.getElementById('payTitlePresetSelect');
-  let optHtml = '<option value="">-- 快捷選擇今日開團店家 (或下方自填) --</option>';
-  
-  if (allStores && allStores.length > 0) {
-    allStores.forEach(s => {
-      const isDrink = s.category && (s.category.includes('飲料') || s.category.includes('茶'));
-      const prefix = isDrink ? '🥤 ' : '🍱 ';
-      optHtml += `<option value="${s.name} 收款">${prefix}${s.name} 收款</option>`;
-    });
+      document.getElementById('notifyTailInput').value = '';
+      document.getElementById('notifyModal').classList.remove('hidden');
 
-    // 如果開了兩家以上的店，加一個合單快捷
-    if (allStores.length > 1) {
-      const multiNames = allStores.map(s => s.name).join(' + ');
-      optHtml += `<option value="${multiNames} 合併收款">🛍️ 今日全體店家合併收款 (${multiNames})</option>`;
+      await onNotifyUserChange();
     }
-  }
 
-  presetSelect.innerHTML = optHtml;
-  document.getElementById('paymentModal').classList.remove('hidden');
-}
+    async function onNotifyUserChange() {
+      const userName = document.getElementById('notifyUserSelect').value;
+      if (!userName || !currentNotifyCardId) return;
 
-    function closePaymentModal() {
-      document.getElementById('paymentModal').classList.add('hidden');
+      document.getElementById('notifyCalculatedAmount').innerText = '計算中...';
+      document.getElementById('notifyItemsSummary').innerText = '正在統計該主揪負責店家之點購品項...';
+
+      try {
+        const res = await fetch('/api/payment/calculate-user-amount', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cardId: currentNotifyCardId, userName })
+        });
+        const json = await res.json();
+        if (json.success) {
+          const { suggestedAmount, items } = json.data;
+          document.getElementById('notifyCalculatedAmount').innerText = `$${suggestedAmount}`;
+          document.getElementById('notifyAmountInput').value = suggestedAmount;
+
+          if (items && items.length > 0) {
+            const itemNames = items.map(it => `${it.item_name}($${it.price})`).join('、');
+            document.getElementById('notifyItemsSummary').innerText = `明細：${itemNames}`;
+          } else {
+            document.getElementById('notifyItemsSummary').innerText = '目前在該主揪負責之店家查無未結餐點。';
+          }
+        }
+      } catch (e) {
+        document.getElementById('notifyCalculatedAmount').innerText = '$0';
+      }
+    }
+
+    function closeNotifyModal() {
+      document.getElementById('notifyModal').classList.add('hidden');
+      currentNotifyCardId = null;
+    }
+
+    async function submitPaymentNotify() {
+      const userName = document.getElementById('notifyUserSelect').value;
+      const amount = Number(document.getElementById('notifyAmountInput').value);
+      const accountTail = document.getElementById('notifyTailInput').value.trim();
+
+      if (!userName || !amount || isNaN(amount) || amount <= 0) {
+        return alert('請填寫完整轉帳金額！');
+      }
+
+      const btn = document.getElementById('submitNotifyBtn');
+      btn.disabled = true;
+      btn.innerText = '送出中...';
+
+      try {
+        const res = await fetch('/api/payment/notify/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cardId: currentNotifyCardId,
+            userName,
+            amount,
+            accountTail
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          alert(json.message);
+          closeNotifyModal();
+        } else {
+          alert(json.message || '送出失敗');
+        }
+      } catch (e) {
+        alert('網路異常，請稍後再試');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '送出回報';
+      }
+    }
+
+    // ==========================================
+    // 🔐 主揪查帳與核准自動沖帳核心
+    // ==========================================
+    async function openAuditModal(cardId, cardTitle) {
+      const password = prompt(`【${cardTitle}】\n請輸入卡片專屬管理密碼以查核匯款紀錄：`);
+      if (!password || !password.trim()) return;
+
+      currentAuditCardId = cardId;
+      currentAuditPassword = password.trim();
+      document.getElementById('auditCardTitle').innerText = cardTitle;
+
+      await loadAuditNotifications();
+    }
+
+    async function loadAuditNotifications() {
+      const container = document.getElementById('auditListContainer');
+      container.innerHTML = '<p class="text-slate-400 py-6 text-center text-xs">載入回報資料中...</p>';
+
+      try {
+        const res = await fetch('/api/payment/notifications/list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cardId: currentAuditCardId, password: currentAuditPassword })
+        });
+        const json = await res.json();
+        if (!json.success) {
+          alert(json.message || '密碼錯誤');
+          return;
+        }
+
+        document.getElementById('auditModal').classList.remove('hidden');
+        const list = json.data || [];
+
+        if (list.length === 0) {
+          container.innerHTML = '<p class="text-slate-400 py-6 text-center text-xs">尚無同仁送出轉帳回報</p>';
+          return;
+        }
+
+        let html = '';
+        list.forEach(n => {
+          const isApproved = (n.status === 1);
+          html += `
+            <div class="flex justify-between items-center bg-slate-50 border ${isApproved ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200'} rounded-xl p-3">
+              <div>
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-bold text-slate-800 text-sm">${escapeHtml(n.user_name)}</span>
+                  <span class="font-bold text-blue-600 ml-1">$${n.amount}</span>
+                  ${isApproved ? '<span class="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">✓ 已沖帳</span>' : '<span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">待核對</span>'}
+                </div>
+                <p class="text-[11px] text-slate-500 mt-0.5">
+                  末五碼/備註：<span class="font-mono font-bold text-slate-700">${escapeHtml(n.account_tail || '未提供')}</span>
+                </p>
+                <span class="text-[10px] text-slate-400">${n.created_at.slice(5, 16)}</span>
+              </div>
+              <div>
+                ${!isApproved ? `
+                  <button onclick="approveNotification(${n.id})" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-xs transition">
+                    ✓ 核准沖帳
+                  </button>
+                ` : `
+                  <span class="text-xs text-emerald-600 font-bold px-2 py-1">已入帳</span>
+                `}
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      } catch (e) {
+        alert('網路異常');
+      }
+    }
+
+    async function approveNotification(notificationId) {
+      if (!confirm('確認此筆款項已入帳，並將金額自動累加至該同仁之訂單收款紀錄嗎？')) return;
+
+      try {
+        const res = await fetch('/api/payment/notification/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notificationId,
+            cardId: currentAuditCardId,
+            password: currentAuditPassword
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          alert(json.message);
+          await loadAuditNotifications();
+          initPage();
+        } else {
+          alert(json.message || '核准失敗');
+        }
+      } catch (e) {
+        alert('網路連線失敗');
+      }
+    }
+
+    function closeAuditModal() {
+      document.getElementById('auditModal').classList.add('hidden');
+      currentAuditCardId = null;
+      currentAuditPassword = '';
+    }
+
+    // ==========================================
+    // 📸 裁切輔助函式
+    // ==========================================
+    function initCrop(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const targetImg = document.getElementById('cropperImageTarget');
+        targetImg.src = e.target.result;
+
+        document.getElementById('cropperModal').classList.remove('hidden');
+
+        if (cropperInstance) cropperInstance.destroy();
+
+        cropperInstance = new Cropper(targetImg, {
+          aspectRatio: 1,
+          viewMode: 1,
+          autoCropArea: 0.75,
+          responsive: true,
+          guides: true
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function confirmCrop() {
+      if (!cropperInstance) return;
+
+      const canvas = cropperInstance.getCroppedCanvas({
+        width: 400,
+        height: 400,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high'
+      });
+
+      compressedBase64Image = canvas.toDataURL('image/jpeg', 0.8);
+      document.getElementById('compressedImagePreview').src = compressedBase64Image;
+      document.getElementById('imagePreviewBox').classList.remove('hidden');
+
+      const approxSizeKb = Math.round((compressedBase64Image.length * (3 / 4)) / 1024);
+      document.getElementById('imageSizeIndicator').innerText = `已成功壓縮：約 ${approxSizeKb} KB`;
+
+      cancelCrop();
+    }
+
+    function cancelCrop() {
+      document.getElementById('cropperModal').classList.add('hidden');
+      if (cropperInstance) {
+        cropperInstance.destroy();
+        cropperInstance = null;
+      }
+    }
+
+    function clearUploadImage() {
+      compressedBase64Image = '';
+      document.getElementById('payQrFileInput').value = '';
+      document.getElementById('imagePreviewBox').classList.add('hidden');
     }
 
     function previewImage(src) {
