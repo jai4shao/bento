@@ -706,24 +706,24 @@ app.post('/api/admin/orders/realign-prices', async (c) => {
 });
 
 // ==========================================
-// 💳 多人主揪收款卡片 API (支援自動清理 6 天過期項目)
+// 💳 多人主揪收款卡片 API (支援自動清理 3 天過期項目)
 // ==========================================
 
-// 1. 取得所有有效收款卡片 (順便執行惰性清理，自動刪除滿 6 天卡片)
+// 1. 取得所有有效收款卡片 (順便執行惰性清理，自動刪除滿 3 天卡片)
 app.get('/api/payment/cards', async (c) => {
   try {
     const db = c.env.DB;
 
-    // 🌟 惰性清理：自動刪除建立超過 6 天的舊卡片
+    // 🌟 惰性清理：自動刪除建立超過 3 天的舊卡片
     await db.prepare(`
       DELETE FROM payment_cards 
-      WHERE datetime(created_at, '+6 days') <= datetime('now')
+      WHERE datetime(created_at, '+3 days') <= datetime('now')
     `).run();
 
     // 查詢現有卡片 (遮蔽 edit_password 防外洩)
     const { results } = await db.prepare(`
       SELECT id, initiator_name, title, qr_image, app_link, note, created_at,
-             datetime(created_at, '+6 days') AS expires_at
+             datetime(created_at, '+3 days') AS expires_at
       FROM payment_cards
       ORDER BY id DESC
     `).all();
