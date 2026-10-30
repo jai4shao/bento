@@ -58,10 +58,20 @@ async function ensureTables(db: D1Database) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       initiator_name TEXT NOT NULL,
       title TEXT NOT NULL,
+      target_store_ids TEXT DEFAULT '',
       qr_image TEXT DEFAULT '',
       app_link TEXT DEFAULT '',
       note TEXT DEFAULT '',
       edit_password TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS payment_notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      card_id INTEGER NOT NULL,
+      user_name TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      account_tail TEXT DEFAULT '',
+      status INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`)
   ]);
