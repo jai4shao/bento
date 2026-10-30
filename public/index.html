@@ -1174,15 +1174,43 @@
       }
     }
 
-    function openPaymentModal() {
-      document.getElementById('payInitiatorName').value = document.getElementById('userSelect').value || '';
-      document.getElementById('payTitle').value = '';
-      document.getElementById('payAppLink').value = '';
-      document.getElementById('payNote').value = '';
-      document.getElementById('payPassword').value = '';
-      clearUploadImage();
-      document.getElementById('paymentModal').classList.remove('hidden');
+// 🌟 點選快捷選單自動帶入輸入框
+function onPresetTitleChange(val) {
+  if (val) {
+    document.getElementById('payTitle').value = val;
+  }
+}
+
+// 🌟 打開收款彈窗時，自動填入當前開團的店家清單
+function openPaymentModal() {
+  document.getElementById('payInitiatorName').value = document.getElementById('userSelect').value || '';
+  document.getElementById('payTitle').value = '';
+  document.getElementById('payAppLink').value = '';
+  document.getElementById('payNote').value = '';
+  document.getElementById('payPassword').value = '';
+  clearUploadImage();
+
+  // 動態生成今日開團的店家選項 (只列出供餐中與已截止的店家)
+  const presetSelect = document.getElementById('payTitlePresetSelect');
+  let optHtml = '<option value="">-- 快捷選擇今日開團店家 (或下方自填) --</option>';
+  
+  if (allStores && allStores.length > 0) {
+    allStores.forEach(s => {
+      const isDrink = s.category && (s.category.includes('飲料') || s.category.includes('茶'));
+      const prefix = isDrink ? '🥤 ' : '🍱 ';
+      optHtml += `<option value="${s.name} 收款">${prefix}${s.name} 收款</option>`;
+    });
+
+    // 如果開了兩家以上的店，加一個合單快捷
+    if (allStores.length > 1) {
+      const multiNames = allStores.map(s => s.name).join(' + ');
+      optHtml += `<option value="${multiNames} 合併收款">🛍️ 今日全體店家合併收款 (${multiNames})</option>`;
     }
+  }
+
+  presetSelect.innerHTML = optHtml;
+  document.getElementById('paymentModal').classList.remove('hidden');
+}
 
     function closePaymentModal() {
       document.getElementById('paymentModal').classList.add('hidden');
