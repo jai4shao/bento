@@ -690,9 +690,18 @@ app.post('/api/admin/order/delete', async (c) => {
   }
 });
 
+// 🌟 清空訂單：一併清空所有點餐紀錄與匯款回報暫存
 app.post('/api/admin/orders/reset', async (c) => {
-  await c.env.DB.prepare("DELETE FROM orders").run();
-  return c.json({ success: true, message: '已清空本週所有點餐紀錄！' });
+  try {
+    const db = c.env.DB;
+    await db.batch([
+      db.prepare("DELETE FROM orders"),
+      db.prepare("DELETE FROM payment_notifications")
+    ]);
+    return c.json({ success: true, message: '🎉 已清空本週所有點餐紀錄與轉帳通報！' });
+  } catch (err: any) {
+    return c.json({ success: false, message: '清空失敗: ' + (err?.message || err) }, 500);
+  }
 });
 
 // 🌟 一鍵依最新菜單價格校正所有未結清訂單金額
@@ -774,27 +783,51 @@ app.post('/api/payment/card/add', async (c) => {
   }
 });
 
-// 3. 刪除收款卡片 (驗證卡片密碼)
+// 🌟 刪除收款卡片：連帶清除轉帳記錄，並重置該卡片負責店家的付款狀態
 app.post('/api/payment/card/delete', async (c) => {
   try {
     const { cardId, password } = await c.req.json();
     const cId = Number(cardId);
-    if (!cId || !password) return c.json({ success: false, message: '缺少卡片編號或密碼' }, 400);
 
-    const db = c.env.DB;
-    const card: any = await db.prepare("SELECT edit_password FROM payment_cards WHERE id = ?").bind(cId).first();
-
-    if (!card) return c.json({ success: false, message: '找不到該卡片或已過期' }, 404);
-    if (card.edit_password !== String(password).trim()) {
-      return c.json({ success: false, message: '🔒 密碼錯誤！無法刪除此卡片。' }, 403);
+    if (!cId || !password) {
+      return c.json({ success: false, message: '缺少卡片編號或密碼' }, 400);
     }
 
-    await db.batch([
-      db.prepare("DELETE FROM payment_notifications WHERE card_id = ?").bind(cId),
-      db.prepare("DELETE FROM payment_cards WHERE id = ?").bind(cId)
-    ]);
+    const db = c.env.DB;
+    const card: any = await db.prepare("SELECT edit_password, target_store_ids FROM payment_cards WHERE id = ?").bind(cId).first();
 
-    return c.json({ success: true, message: '收款卡片已刪除！' });
+    if (!card) {
+      return c.json({ success: false, message: '找不到該卡片或已過期下架' }, 404);
+    }
+
+    if (card.edit_password !== String(password).trim()) {
+      return c.json({ success: false, message: '🔒 密碼錯誤！無法刪除此收款卡片。' }, 403);
+    }
+
+    const batchStatements: any[] = [
+      // 1. 刪除該卡片的所有匯款回報暫存
+      db.prepare("DELETE FROM payment_notifications WHERE card_id = ?").bind(cId),
+      // 2. 刪除收款卡片本身
+      db.prepare("DELETE FROM payment_cards WHERE id = ?").bind(cId)
+    ];
+
+    // 3. 🌟 一併重設該卡片所屬店家訂單的已繳金額與狀態 (清空實收與結清標記)
+    const storeIdsStr = card.target_store_ids || '';
+    const storeIds = storeIdsStr.split(',').map((id: string) => Number(id.trim())).filter((id: number) => !isNaN(id) && id > 0);
+
+    if (storeIds.length > 0) {
+      const placeholders = storeIds.map(() => '?').join(',');
+      batchStatements.push(
+        db.prepare(`
+          UPDATE orders 
+          SET paid_amount = 0, is_paid = 0
+          WHERE item_id IN (SELECT id FROM menu_items WHERE store_id IN (${placeholders}))
+        `).bind(...storeIds)
+      );
+    }
+
+    await db.batch(batchStatements);
+    return c.json({ success: true, message: '收款卡片與關聯付款記錄已成功清除！' });
   } catch (err: any) {
     return c.json({ success: false, message: err?.message || '刪除失敗' }, 500);
   }
