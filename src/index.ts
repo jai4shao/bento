@@ -728,22 +728,22 @@ app.post('/api/admin/orders/realign-prices', async (c) => {
 // 💳 多人主揪收款卡片與對帳沖帳 API
 // ==========================================
 
-// 1. 取得所有有效收款卡片 (惰性清理 6 天過期項目)
+// 1. 取得所有有效收款卡片 (惰性清理 3 天過期項目)
 app.get('/api/payment/cards', async (c) => {
   try {
     const db = c.env.DB;
 
-    // 🌟 惰性清理：自動刪除超過 6 天的舊卡片及關聯回報
+    // 🌟 惰性清理：自動刪除超過 3 天的舊卡片及關聯回報
     await db.batch([
       db.prepare(`DELETE FROM payment_notifications WHERE card_id IN (
-        SELECT id FROM payment_cards WHERE datetime(created_at, '+6 days') <= datetime('now')
+        SELECT id FROM payment_cards WHERE datetime(created_at, '+3 days') <= datetime('now')
       )`),
-      db.prepare(`DELETE FROM payment_cards WHERE datetime(created_at, '+6 days') <= datetime('now')`)
+      db.prepare(`DELETE FROM payment_cards WHERE datetime(created_at, '+3 days') <= datetime('now')`)
     ]);
 
     const { results } = await db.prepare(`
       SELECT id, initiator_name, title, target_store_ids, qr_image, app_link, note, created_at,
-             datetime(created_at, '+6 days') AS expires_at
+             datetime(created_at, '+3 days') AS expires_at
       FROM payment_cards
       ORDER BY id DESC
     `).all();
